@@ -45,7 +45,7 @@ def generate_frames_rife(
     out_len = 0
 
     number_of_frames_processed_since_last_cleared_cuda_cache = 0
-    pbar = ProgressBar(len(frames))
+    # pbar = ProgressBar(len(frames))
 
     for frame_itr in range(len(frames) - 1): # Skip the final frame since there are no frames after it
 
@@ -69,7 +69,7 @@ def generate_frames_rife(
                 number_of_frames_processed_since_last_cleared_cuda_cache = 0
                 logger("Clearing cache...")
 
-            pbar.update(1)
+            # pbar.update(1)
 
 
     # Append final frame
@@ -82,4 +82,5 @@ def generate_frames_rife(
     logger("Final clearing cache done ...")
 #
     res = output_frames[:out_len]
+
     return res
