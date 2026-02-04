@@ -4,7 +4,7 @@
 
 [![python](https://img.shields.io/badge/python-3.12-green)](https://www.python.org/downloads/)
 [![cuda](https://img.shields.io/badge/cuda-13.0-green)](https://developer.nvidia.com/cuda-13-0-2-download-archive)
-[![trt](https://img.shields.io/badge/TRT-10.14.1.48-green)](https://developer.nvidia.com/tensorrt)
+[![trt](https://img.shields.io/badge/TRT-10.15.1.29-green)](https://developer.nvidia.com/tensorrt)
 [![by-nc-sa/4.0](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-lightgrey)](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en)
 
 ![node](https://github.com/user-attachments/assets/5fd6d529-300c-42a5-b9cf-46e031f0bcb5)
@@ -35,8 +35,8 @@ _Note: The following results were benchmarked on FP16 engines inside ComfyUI, us
 Navigate to the ComfyUI `/custom_nodes` directory
 
 ```bash
-git clone https://github.com/yuvraj108c/ComfyUI-Rife-Tensorrt
-cd ./ComfyUI-Rife-Tensorrt
+git clone https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto
+cd ./ComfyUI-RIFE-TensorRT-Auto
 pip install -r requirements.txt
 ```
 
@@ -60,11 +60,21 @@ The node automatically detects your CUDA installation via `CUDA_PATH` or `CUDA_H
 
 If CUDA is not detected, download from: https://developer.nvidia.com/cuda-13-0-2-download-archive
 
+### 🎯 Resolution Limits
+
+**Important**: The TensorRT engine supports different resolution ranges based on the selected profile:
+- **small profile**: 384-1080px 
+- **medium profile**: 672-1312px
+- **large profile**: 720-1920px (perfect for 1440x960 and higher resolutions)
+
+For images larger than your selected profile's maximum, resize them before using the RIFE node or select a higher profile.
+
 ### 🎯 Resolution Profiles
 
 The node supports resolution profiles to optimize VRAM usage:
-- **small**: 480-896px (recommended for most video generation)
-- **medium**: 720-1280px (for higher resolution videos)
+- **small**: 384-1080px (recommended for most video generation)
+- **medium**: 672-1312px (for higher resolution videos)
+- **large**: 720-1920px (for 4K and high-resolution content)
 - **custom**: Connect a "RIFE Custom Resolution Config" node for manual control
 
 The following RIFE models are supported and will be automatically downloaded and built:
@@ -89,10 +99,15 @@ Models are automatically downloaded from [HuggingFace](https://huggingface.co/yu
 
 ## 🤖 Environment tested
 
-- Windows 11, CUDA 13.0, TensorRT 10.14.1.48, Python 3.12, RTX 5070 Ti
+- Windows 11, CUDA 13.0, TensorRT 10.15.1.29, Python 3.12, RTX 5090
 - WSL Ubuntu 24.04.03 LTS, CUDA 12.9, TensorRT 10.13.3.9, Python 3.12.11, RTX 5080
 
 ## 🚨 Updates
+
+### February 2026
+- **Fixed Dependencies**: Updated TensorRT to 10.15.1.29 to resolve installation conflicts
+- **RTX 5090 Support**: Tested and confirmed compatibility with RTX 5090
+- **Resolution Documentation**: Added clear guidance on resolution limits and preprocessing
 
 ### January 2026
 - **CUDA 13 Default**: Updated to CUDA 13.0 and TensorRT 10.14.1.48

@@ -14,12 +14,13 @@
     "tooltip": "Precision to build the tensorrt engines. Loaded from config."
   },
   "resolution_profile": {
-    "options": ["small", "medium"],
+    "options": ["small", "medium", "large"],
     "default": "small",
-    "tooltip": "Resolution range for TensorRT engine. Small: 384-1080px, Medium: 672-1312px. Smaller ranges use less VRAM."
+    "tooltip": "Resolution range for TensorRT engine. Small: 384-1080px, Medium: 672-1312px, Large: 720-1920px. Smaller ranges use less VRAM."
   },
   "resolution_profiles": {
     "small": { "min": 384, "opt": 720, "max": 1080 },
-    "medium": { "min": 672, "opt": 1080, "max": 1312 }
+    "medium": { "min": 672, "opt": 1080, "max": 1312 },
+    "large": { "min": 720, "opt": 1440, "max": 1920 }
   }
 }
