@@ -1,7 +1,7 @@
 # Default: CUDA 13 (RTX 50 series, CUDA 13.0+)
 # For CUDA 12, use requirements_cu12.txt instead
 tensorrt_cu13==10.14.1.48
-tensorrt_cu13_bindings==10.14.1.48
+tensorrt_cu13_bindings==10.14.1.48.post1
 tensorrt_cu13_libs==10.14.1.48
 cuda-toolkit>=13.0.0,<13.1.0
 einops
