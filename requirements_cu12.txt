@@ -1,5 +1,12 @@
-# Legacy: CUDA 12 (RTX 30/40 series, CUDA 12.x)
-# For CUDA 13, use requirements.txt instead
+# LEGACY: Manual installation for CUDA 12 (RTX 30/40 series, CUDA 12.x)
+# 
+# NOTE: This file is provided for manual installation only.
+# The recommended method is to use the automatic installation:
+# - Clone the repo and restart ComfyUI (auto-detects CUDA and installs appropriate packages)
+# - Or run: python install.py
+#
+# For CUDA 13, the node will auto-install tensorrt_cu13 packages
+# For CUDA 12, the node will auto-install these tensorrt-cu12 packages
 tensorrt-cu12==10.13.3.9
 tensorrt-cu12-libs==10.13.3.9
 tensorrt-cu12-bindings==10.13.3.9

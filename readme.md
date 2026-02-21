@@ -66,28 +66,16 @@ install.bat
 python install.py
 ```
 
-**Manual requirements:**
+**Manual requirements files:**
 ```bash
 # For CUDA 13 (RTX 50 series)
 pip install -r requirements.txt
 
-# For CUDA 12 (RTX 30/40 series)  
+# For CUDA 12 (RTX 30/40 series) - LEGACY METHOD
 pip install -r requirements_cu12.txt
 ```
 
-### ⚠️ CUDA Version Selection
-
-This node defaults to **CUDA 13** (RTX 50 series, driver 580+).
-
-**For CUDA 12 (RTX 30/40 series):**
-```bash
-pip install -r requirements_cu12.txt
-```
-
-**For CUDA 13 (Default):**
-```bash
-pip install -r requirements.txt
-```
+> **💡 Note:** The `requirements_cu12.txt` is provided as a legacy fallback method. The automatic installation is strongly recommended as it handles CUDA detection and package installation seamlessly.
 
 ### 📦 CUDA Toolkit Required
 
