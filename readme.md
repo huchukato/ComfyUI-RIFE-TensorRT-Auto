@@ -37,8 +37,33 @@ Navigate to the ComfyUI `/custom_nodes` directory
 ```bash
 git clone https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto
 cd ./ComfyUI-RIFE-TensorRT-Auto
-pip install -r requirements.txt
 ```
+
+### 🎯 Auto-Install (Recommended)
+
+The node includes auto-install scripts that detect your CUDA version and install the appropriate requirements:
+
+**Linux/macOS:**
+```bash
+./install.sh
+```
+
+**Windows:**
+```cmd
+install.bat
+```
+
+**Python (cross-platform):**
+```bash
+python install.py
+```
+
+The scripts automatically:
+- Detect CUDA version via `nvcc`, `CUDA_PATH`, or `CUDA_HOME`
+- Install CUDA 13 requirements for RTX 50 series
+- Install CUDA 12 requirements for RTX 30/40 series
+
+### 📦 Manual Installation
 
 ### ⚠️ CUDA Version Selection
 
