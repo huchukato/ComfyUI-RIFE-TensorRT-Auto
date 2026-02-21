@@ -7,6 +7,8 @@
 [![trt](https://img.shields.io/badge/TRT-10.15.1.29-green)](https://developer.nvidia.com/tensorrt)
 [![by-nc-sa/4.0](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-lightgrey)](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en)
 
+[📖 Leggi in Italiano](README.it.md)
+
 ![node](https://github.com/user-attachments/assets/5fd6d529-300c-42a5-b9cf-46e031f0bcb5)
 
 
