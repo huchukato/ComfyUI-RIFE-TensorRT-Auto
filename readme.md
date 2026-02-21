@@ -36,8 +36,8 @@ _Note: The following results were benchmarked on FP16 engines inside ComfyUI, us
 Navigate to the ComfyUI `/custom_nodes` directory
 
 ```bash
-git clone https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto
-cd ./ComfyUI-RIFE-TensorRT-Auto
+cd ComfyUI/custom_nodes
+git clone https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto.git
 ```
 
 ### 🎯 Fully Automatic Installation (Recommended)

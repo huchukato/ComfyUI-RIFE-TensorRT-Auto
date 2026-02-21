@@ -35,8 +35,8 @@ _Nota: I seguenti risultati sono stati testati su motori FP16 all'interno di Com
 Naviga nella directory `/custom_nodes` di ComfyUI
 
 ```bash
-git clone https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto
-cd ./ComfyUI-RIFE-TensorRT-Auto
+cd ComfyUI/custom_nodes
+git clone https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto.git
 ```
 
 ### 🎯 Installazione Completamente Automatica (Raccomandata)
