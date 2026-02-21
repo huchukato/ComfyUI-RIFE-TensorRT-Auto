@@ -1,12 +1,14 @@
-# Default: CUDA 13 (RTX 50 series, CUDA 13.0+)
-# For CUDA 12, use requirements_cu12.txt instead
-tensorrt_cu13==10.15.1.29
-tensorrt_cu13_bindings==10.15.1.29
-tensorrt_cu13_libs==10.15.1.29
-cuda-toolkit>=13.0.0,<13.1.0
+# Base dependencies - TensorRT will be auto-installed based on CUDA detection
+# The node will automatically detect CUDA 12/13 and install appropriate TensorRT packages
+
+# Base dependencies that work with any CUDA version
 einops
 colored
 polygraphy
 cuda-python
 requests
 tqdm
+
+# Note: TensorRT packages will be auto-installed when the node loads
+# CUDA 13: tensorrt_cu13==10.15.1.29 (RTX 50 series)
+# CUDA 12: tensorrt-cu12==10.13.3.9 (RTX 30/40 series)
