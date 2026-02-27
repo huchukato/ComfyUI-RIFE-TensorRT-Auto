@@ -123,12 +123,50 @@ torch_to_numpy_dtype_dict = {
 def CUASSERT(cuda_ret):
     err = cuda_ret[0]
     if err != cudart.cudaError_t.cudaSuccess:
-        raise RuntimeError(
-            f"CUDA ERROR: {err}, error code reference: https://nvidia.github.io/cuda-python/module/cudart.html#cuda.cudart.cudaError_t"
-        )
+        # Special handling for CUDA ERROR 35 (CUDA_ERROR_NO_DEVICE)
+        if err == 35:
+            raise RuntimeError(
+                f"CUDA ERROR: {err} (Device not available or CUDA state corrupted). "
+                f"Try: 1) Restart ComfyUI, 2) Check GPU availability with nvidia-smi, "
+                f"3) Ensure no other processes are using the GPU. "
+                f"Error reference: https://nvidia.github.io/cuda-python/module/cudart.html#cuda.cudart.cudaError_t"
+            )
+        else:
+            raise RuntimeError(
+                f"CUDA ERROR: {err}, error code reference: https://nvidia.github.io/cuda-python/module/cudart.html#cuda.cudart.cudaError_t"
+            )
     if len(cuda_ret) > 1:
         return cuda_ret[1]
     return None
+
+def safe_cuda_call(func, *args, max_retries=3, **kwargs):
+    """Wrapper for CUDA calls with retry mechanism for ERROR 35"""
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except RuntimeError as e:
+            if "CUDA ERROR: 35" in str(e) and attempt < max_retries - 1:
+                print(f"⚠️  CUDA ERROR 35 detected, attempt {attempt + 1}/{max_retries}")
+                print("Trying to reset CUDA context...")
+                
+                # Try to reset CUDA context
+                try:
+                    import torch
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                    print("✅ CUDA cache cleared and synchronized")
+                except Exception as reset_error:
+                    print(f"⚠️  Could not reset CUDA: {reset_error}")
+                
+                # Small delay before retry
+                import time
+                time.sleep(1)
+                
+                if attempt == max_retries - 2:  # Last attempt
+                    print("🔄 Final retry attempt...")
+            else:
+                # Re-raise the error if it's not ERROR 35 or we've exhausted retries
+                raise e
 
 class TQDMProgressMonitor(trt.IProgressMonitor):
     def __init__(self):
@@ -387,37 +425,47 @@ class Engine:
                 self.context.set_input_shape(name, shape)
             tensor = torch.empty(
                 tuple(shape), dtype=numpy_to_torch_dtype_dict[dtype]
-            ).to(device=device)
-            self.tensors[binding] = tensor
+            ).to(device)
+            
+            self.buffers[name] = tensor
+            self.tensors[name] = tensor
+            
+            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+                self.inputs[name] = tensor
+            else:
+                self.outputs[name] = tensor
         nvtx.range_pop()
 
     def infer(self, feed_dict, stream, use_cuda_graph=False):
-        for name, buf in feed_dict.items():
-            self.tensors[name].copy_(buf)
+        """Inference with CUDA error recovery"""
+        def _do_inference():
+            for name, buf in feed_dict.items():
+                self.tensors[name].copy_(buf)
 
-        for name, tensor in self.tensors.items():
-            self.context.set_tensor_address(name, tensor.data_ptr())
-
-        if use_cuda_graph:
-            if self.cuda_graph_instance is not None:
-                CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instance, stream.ptr))
-                CUASSERT(cudart.cudaStreamSynchronize(stream.ptr))
+            nvtx.range_push("TensorRT Inference")
+            if use_cuda_graph:
+                if self.cuda_graph_instance is not None:
+                    CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instance, stream.ptr))
+                    CUASSERT(cudart.cudaStreamSynchronize(stream.ptr))
+                else:
+                    # do inference before CUDA graph capture
+                    noerror = self.context.execute_async_v3(stream.ptr)
+                    if not noerror:
+                        raise ValueError("ERROR: inference failed.")
+                    # capture cuda graph
+                    CUASSERT(
+                        cudart.cudaStreamBeginCapture(stream.ptr, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeGlobal)
+                    )
+                    self.context.execute_async_v3(stream.ptr)
+                    self.graph = CUASSERT(cudart.cudaStreamEndCapture(stream.ptr))
+                    self.cuda_graph_instance = CUASSERT(cudart.cudaGraphInstantiate(self.graph, 0))
             else:
-                # do inference before CUDA graph capture
                 noerror = self.context.execute_async_v3(stream.ptr)
                 if not noerror:
                     raise ValueError("ERROR: inference failed.")
-                # capture cuda graph
-                CUASSERT(
-                    cudart.cudaStreamBeginCapture(stream.ptr, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeGlobal)
-                )
-                self.context.execute_async_v3(stream.ptr)
-                self.graph = CUASSERT(cudart.cudaStreamEndCapture(stream.ptr))
-                self.cuda_graph_instance = CUASSERT(cudart.cudaGraphInstantiate(self.graph, 0))
-        else:
-            noerror = self.context.execute_async_v3(stream.ptr)
-            if not noerror:
-                raise ValueError("ERROR: inference failed.")
 
-        return self.tensors
-
+            nvtx.range_pop()
+            return self.tensors
+        
+        # Use safe wrapper with retry mechanism
+        return safe_cuda_call(_do_inference)
