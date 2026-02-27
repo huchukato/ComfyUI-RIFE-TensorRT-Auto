@@ -121,6 +121,59 @@ Models are automatically downloaded from [HuggingFace](https://huggingface.co/yu
    - Input your video frames
    - Configure interpolation settings (multiplier, CUDA graph, etc.)
 
+## 🔧 Troubleshooting
+
+### CUDA Initialization Errors
+
+If you encounter `CUDA initialization failure with error: 35` or similar TensorRT errors:
+
+1. **Check NVIDIA Drivers:**
+   ```bash
+   nvidia-smi
+   ```
+   Ensure your drivers support your CUDA version
+
+2. **Restart System:**
+   Sometimes CUDA state gets corrupted - a system restart can fix this
+
+3. **Verify CUDA Installation:**
+   ```bash
+   nvcc --version
+   ```
+   Ensure CUDA toolkit is properly installed
+
+4. **Check PyTorch CUDA:**
+   ```python
+   import torch
+   print(f"CUDA available: {torch.cuda.is_available()}")
+   print(f"CUDA version: {torch.version.cuda}")
+   ```
+
+5. **Reinstall TensorRT:**
+   ```bash
+   python install.py
+   ```
+
+The node now includes automatic CUDA diagnostics that will help identify the specific issue.
+
+### Memory Issues
+
+For large resolution engines, ensure you have sufficient VRAM:
+- **small profile**: ~2GB VRAM minimum
+- **medium profile**: ~4GB VRAM minimum  
+- **large profile**: ~6GB VRAM minimum
+
+### Installation Issues
+
+If auto-installation fails, try manual installation:
+```bash
+# CUDA 13
+pip install -r requirements.txt
+
+# CUDA 12
+pip install -r requirements_cu12.txt
+```
+
 ## 🤖 Environment tested
 
 - Windows 11, CUDA 13.0, TensorRT 10.15.1.29, Python 3.12, RTX 5090

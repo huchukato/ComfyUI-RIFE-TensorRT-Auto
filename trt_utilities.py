@@ -17,6 +17,81 @@ from logging import error, warning
 from tqdm import tqdm
 import copy
 import cuda.bindings.runtime as cudart
+import subprocess
+import sys
+
+def diagnose_cuda_environment():
+    """Diagnose CUDA environment and provide helpful error messages"""
+    print("🔍 Diagnosing CUDA environment...")
+    
+    # Check CUDA availability
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            print("❌ CUDA is not available in PyTorch")
+            print("Please check:")
+            print("1. CUDA is properly installed")
+            print("2. PyTorch was installed with CUDA support")
+            print("3. NVIDIA drivers are up to date")
+            return False
+        
+        print(f"✅ PyTorch CUDA version: {torch.version.cuda}")
+        print(f"✅ CUDA device count: {torch.cuda.device_count()}")
+        if torch.cuda.device_count() > 0:
+            print(f"✅ Current CUDA device: {torch.cuda.get_device_name()}")
+            print(f"✅ CUDA device memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+    except Exception as e:
+        print(f"❌ Error checking PyTorch CUDA: {e}")
+        return False
+    
+    # Check TensorRT CUDA compatibility
+    try:
+        import tensorrt as trt
+        print(f"✅ TensorRT version: {trt.__version__}")
+        
+        # Try to create a simple builder to test CUDA initialization
+        try:
+            logger = trt.Logger(trt.Logger.WARNING)
+            builder = trt.Builder(logger)
+            print("✅ TensorRT CUDA initialization successful")
+            return True
+        except Exception as e:
+            print(f"❌ TensorRT CUDA initialization failed: {e}")
+            print("Possible solutions:")
+            print("1. Restart your system to clear CUDA state")
+            print("2. Check NVIDIA driver version compatibility")
+            print("3. Verify CUDA toolkit installation")
+            print("4. Try: nvidia-smi to check GPU status")
+            return False
+    except ImportError as e:
+        print(f"❌ TensorRT import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Error checking TensorRT: {e}")
+        return False
+
+def check_nvidia_driver():
+    """Check NVIDIA driver status"""
+    try:
+        result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            print("✅ NVIDIA driver is working")
+            # Extract driver version
+            lines = result.stdout.split('\n')
+            for line in lines:
+                if 'Driver Version' in line:
+                    print(f"✅ {line.strip()}")
+                    break
+            return True
+        else:
+            print("❌ nvidia-smi command failed")
+            return False
+    except FileNotFoundError:
+        print("❌ nvidia-smi not found - NVIDIA drivers may not be installed")
+        return False
+    except Exception as e:
+        print(f"❌ Error running nvidia-smi: {e}")
+        return False
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 G_LOGGER.module_severity = G_LOGGER.ERROR
@@ -201,6 +276,20 @@ class Engine:
         update_output_names=None,
     ):
         print(f"Building TensorRT engine for {onnx_path}: {self.engine_path}")
+        
+        # Diagnose CUDA environment before building
+        print("🔍 Checking CUDA environment before TensorRT build...")
+        if not diagnose_cuda_environment():
+            print("❌ CUDA environment check failed. Cannot build TensorRT engine.")
+            print("Please resolve the CUDA issues above and try again.")
+            raise RuntimeError("CUDA environment check failed - see diagnostic output above")
+        
+        # Additional driver check
+        if not check_nvidia_driver():
+            print("⚠️  NVIDIA driver check failed, but attempting to continue...")
+        
+        print("✅ CUDA environment looks good, proceeding with TensorRT build...")
+        
         p = [Profile()]
         if input_profile:
             p = [Profile() for i in range(len(input_profile))]
@@ -213,9 +302,14 @@ class Engine:
         if not enable_all_tactics:
             config_kwargs["tactic_sources"] = []
 
-        network = network_from_onnx_path(
-            onnx_path, flags=[trt.OnnxParserFlag.NATIVE_INSTANCENORM]
-        )
+        try:
+            network = network_from_onnx_path(
+                onnx_path, flags=[trt.OnnxParserFlag.NATIVE_INSTANCENORM]
+            )
+        except Exception as e:
+            print(f"❌ Failed to load ONNX network: {e}")
+            raise RuntimeError(f"ONNX loading failed: {e}")
+        
         if update_output_names:
             print(f"Updating network outputs to {update_output_names}")
             network = ModifyNetworkOutputs(network, update_output_names)
