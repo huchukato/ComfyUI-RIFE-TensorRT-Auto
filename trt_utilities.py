@@ -445,6 +445,11 @@ class Engine:
                 self.tensors[name].copy_(buf)
 
             nvtx.range_push("TensorRT Inference")
+            
+            # Set tensor addresses explicitly for all bindings
+            for name, tensor in self.tensors.items():
+                self.context.set_tensor_address(name, tensor.data_ptr())
+            
             if use_cuda_graph:
                 if self.cuda_graph_instance is not None:
                     CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instance, stream.ptr))
