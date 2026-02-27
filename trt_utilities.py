@@ -68,8 +68,18 @@ def get_trt():
             # Create dummy nptype function
             trt.nptype = lambda x: np.float32
             
-            # Create dummy IProgressMonitor class
-            trt.IProgressMonitor = object
+            # Create dummy IProgressMonitor class that works without inheritance
+            class DummyIProgressMonitor:
+                def __init__(self):
+                    pass
+                def phase_start(self, *args, **kwargs):
+                    pass
+                def phase_finish(self, *args, **kwargs):
+                    pass
+                def step_complete(self, *args, **kwargs):
+                    return True
+            
+            trt.IProgressMonitor = DummyIProgressMonitor
             
             _trt = trt
             _trt_available = False
@@ -254,7 +264,9 @@ def safe_cuda_call_with_graph_fallback(func, *args, **kwargs):
 class TQDMProgressMonitor:
     def __init__(self):
         trt = get_trt()
-        trt.IProgressMonitor.__init__(self)
+        # Only call parent __init__ if it's not the dummy class
+        if hasattr(trt.IProgressMonitor, '__init__') and trt.IProgressMonitor.__init__ is not DummyIProgressMonitor.__init__:
+            trt.IProgressMonitor.__init__(self)
         self._active_phases = {}
         self._step_result = True
         self.max_indent = 5
