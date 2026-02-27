@@ -43,6 +43,8 @@ if [ "$CUDA_MAJOR" = "13" ]; then
     echo "🚀 Installing CUDA 13 requirements (RTX 50 series)"
     echo "📦 Installing base dependencies + CUDA 13 TensorRT..."
     pip install -r requirements.txt
+    echo "📦 Installing CUDA 13 specific TensorRT packages..."
+    pip install -r requirements_cu13.txt
 elif [ "$CUDA_MAJOR" = "12" ]; then
     echo "🔧 Installing CUDA 12 requirements (RTX 30/40 series)"
     echo "📦 Installing base dependencies + CUDA 12 TensorRT..."

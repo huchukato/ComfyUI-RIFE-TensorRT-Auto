@@ -18,4 +18,4 @@ tqdm
 #
 # Manual installation files are provided for reference only:
 # - requirements_cu12.txt (CUDA 12 specific)
-# - requirements_cu13.txt (CUDA 13 specific, if needed in future)
+# - requirements_cu13.txt (CUDA 13 specific)

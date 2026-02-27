@@ -1,0 +1,17 @@
+# CUDA 13 specific packages (RTX 50 series, CUDA 13.x)
+# 
+# NOTE: This file is for REFERENCE ONLY - manual installation
+# The recommended method is AUTO-INSTALLATION via the node:
+# - Just install requirements.txt and restart ComfyUI
+# - The node will auto-detect CUDA and install TensorRT automatically
+#
+# Use this file ONLY if auto-installation fails or for manual setup
+#
+# Installation order for MANUAL setup only:
+# 1. pip install -r requirements.txt (base dependencies)
+# 2. pip install -r requirements_cu13.txt (CUDA 13 specific TensorRT)
+#
+tensorrt_cu13==10.15.1.29
+tensorrt_cu13_bindings==10.15.1.29
+tensorrt_cu13_libs==10.15.1.29
+cuda-toolkit>=13.0.0,<13.1.0
