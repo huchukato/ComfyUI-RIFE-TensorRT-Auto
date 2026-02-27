@@ -35,19 +35,42 @@ def get_trt():
             # Create dummy tensorrt module for graceful fallback
             import types
             trt = types.ModuleType('tensorrt')
-            trt.Logger = types.ModuleType('Logger')
-            trt.Logger.ERROR = 0
-            trt.Logger.WARNING = 1
-            trt.BuilderFlag = types.ModuleType('BuilderFlag')
-            trt.BuilderFlag.FP16 = 1
-            trt.BuilderFlag.REFIT = 2
-            trt.OnnxParserFlag = types.ModuleType('OnnxParserFlag')
-            trt.OnnxParserFlag.NATIVE_INSTANCENORM = 1
-            trt.TensorIOMode = types.ModuleType('TensorIOMode')
-            trt.TensorIOMode.INPUT = 0
-            trt.TensorIOMode.OUTPUT = 1
-            trt.nptype = lambda x: np.float32  # dummy fallback
-            trt.IProgressMonitor = object  # dummy fallback
+            
+            # Create Logger class with ERROR attribute
+            class DummyLogger:
+                def __init__(self, level):
+                    self.level = level
+                ERROR = 0
+                WARNING = 1
+            
+            trt.Logger = DummyLogger
+            
+            # Create BuilderFlag class with flags
+            class DummyBuilderFlag:
+                FP16 = 1
+                REFIT = 2
+            
+            trt.BuilderFlag = DummyBuilderFlag
+            
+            # Create OnnxParserFlag class with flags
+            class DummyOnnxParserFlag:
+                NATIVE_INSTANCENORM = 1
+            
+            trt.OnnxParserFlag = DummyOnnxParserFlag
+            
+            # Create TensorIOMode class with modes
+            class DummyTensorIOMode:
+                INPUT = 0
+                OUTPUT = 1
+            
+            trt.TensorIOMode = DummyTensorIOMode
+            
+            # Create dummy nptype function
+            trt.nptype = lambda x: np.float32
+            
+            # Create dummy IProgressMonitor class
+            trt.IProgressMonitor = object
+            
             _trt = trt
             _trt_available = False
     return _trt
