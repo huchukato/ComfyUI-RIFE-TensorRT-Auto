@@ -301,18 +301,12 @@ class Engine:
     ):
         print(f"Building TensorRT engine for {onnx_path}: {self.engine_path}")
         
-        # Diagnose CUDA environment before building
-        print("🔍 Checking CUDA environment before TensorRT build...")
-        if not diagnose_cuda_environment():
-            print("❌ CUDA environment check failed. Cannot build TensorRT engine.")
-            print("Please resolve the CUDA issues above and try again.")
-            raise RuntimeError("CUDA environment check failed - see diagnostic output above")
+        # Simple check - if TensorRT is not available, we can't build
+        if not is_trt_available():
+            print("❌ TensorRT is not available. Cannot build engine.")
+            raise RuntimeError("TensorRT not available - please install TensorRT first")
         
-        # Additional driver check
-        if not check_nvidia_driver():
-            print("⚠️  NVIDIA driver check failed, but attempting to continue...")
-        
-        print("✅ CUDA environment looks good, proceeding with TensorRT build...")
+        print("✅ TensorRT is available, proceeding with build...")
         
         p = [Profile()]
         if input_profile:
@@ -341,7 +335,13 @@ class Engine:
 
         builder = network[0]
         config = builder.create_builder_config()
-        config.progress_monitor = TQDMProgressMonitor()
+        
+        # Simple progress monitor - only if TensorRT is available
+        if is_trt_available():
+            try:
+                config.progress_monitor = TQDMProgressMonitor()
+            except Exception as e:
+                print(f"Warning: Could not set progress monitor: {e}")
 
         trt = get_trt()
         config.set_flag(trt.BuilderFlag.FP16) if fp16 else None
