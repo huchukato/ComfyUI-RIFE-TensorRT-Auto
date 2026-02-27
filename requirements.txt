@@ -1,5 +1,8 @@
 # Base dependencies - TensorRT will be auto-installed based on CUDA detection
 # The node will automatically detect CUDA 12/13 and install appropriate TensorRT packages
+# 
+# Installation happens automatically when the node loads for the first time
+# No manual TensorRT installation required!
 
 # Base dependencies that work with any CUDA version
 einops
@@ -9,6 +12,10 @@ cuda-python
 requests
 tqdm
 
-# Note: TensorRT packages will be auto-installed when the node loads
+# Note: TensorRT packages are auto-installed on first node load:
 # CUDA 13: tensorrt_cu13==10.15.1.29 (RTX 50 series)
 # CUDA 12: tensorrt-cu12==10.13.3.9 (RTX 30/40 series)
+#
+# Manual installation files are provided for reference only:
+# - requirements_cu12.txt (CUDA 12 specific)
+# - requirements_cu13.txt (CUDA 13 specific, if needed in future)

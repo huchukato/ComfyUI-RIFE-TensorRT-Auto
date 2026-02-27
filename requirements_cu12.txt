@@ -1,12 +1,13 @@
 # CUDA 12 specific packages (RTX 30/40 series, CUDA 12.x)
 # 
-# NOTE: This file contains ONLY CUDA 12 specific TensorRT packages
-# Base dependencies are in requirements.txt and will be installed first
+# NOTE: This file is for REFERENCE ONLY - manual installation
+# The recommended method is AUTO-INSTALLATION via the node:
+# - Just install requirements.txt and restart ComfyUI
+# - The node will auto-detect CUDA and install TensorRT automatically
 #
-# For CUDA 13, node will auto-install tensorrt_cu13 packages
-# For CUDA 12, node will auto-install these tensorrt-cu12 packages
+# Use this file ONLY if auto-installation fails or for manual setup
 #
-# Installation order:
+# Installation order for MANUAL setup only:
 # 1. pip install -r requirements.txt (base dependencies)
 # 2. pip install -r requirements_cu12.txt (CUDA 12 specific TensorRT)
 #
