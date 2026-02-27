@@ -11,6 +11,38 @@ from .utilities import download_file, ColoredLogger
 import folder_paths
 import time
 
+def detect_cloud_environment():
+    """Detect if running in cloud environment where CUDA graph may have issues"""
+    # Check for common cloud environment indicators
+    cloud_indicators = [
+        'RUNPOD', 'COLAB', 'KAGGLE', 'PAPERSPACE', 'GOOGLE_COLAB',
+        'JUPYTER_RUNTIME', 'DOCKER', 'CONTAINER'
+    ]
+    
+    # Check environment variables
+    for indicator in cloud_indicators:
+        if indicator in os.environ:
+            print(f"🌩️  Detected cloud environment: {indicator}")
+            return True
+    
+    # Check if running in Docker/container
+    if os.path.exists('/.dockerenv'):
+        print("🌩️  Detected Docker environment")
+        return True
+    
+    # Check for common cloud provider files
+    cloud_files = [
+        '/run/cloud-init/result.json',
+        '/var/lib/cloud/data/result.json'
+    ]
+    
+    for file_path in cloud_files:
+        if os.path.exists(file_path):
+            print("🌩️  Detected cloud environment via cloud-init")
+            return True
+    
+    return False
+
 # Auto-detect CUDA and install appropriate TensorRT packages
 def _auto_install_tensorrt():
     """Auto-detect CUDA version and install appropriate TensorRT packages if needed"""
@@ -355,7 +387,7 @@ class AutoRifeTensorrt:
                 "rife_trt_model": ("RIFE_TRT_MODEL", {"tooltip": "Tensorrt model built and loaded"}),
                 "clear_cache_after_n_frames": ("INT", {"default": 100, "min": 1, "max": 1000, "tooltip": "Clear CUDA cache after processing this many frames"}),
                 "multiplier": ("INT", {"default": 2, "min": 1, "tooltip": "Frame interpolation multiplier"}),
-                "use_cuda_graph": ("BOOLEAN", {"default": True, "tooltip": "Use CUDA graph for better performance"}),
+                "use_cuda_graph": ("BOOLEAN", {"default": not detect_cloud_environment(), "tooltip": "Use CUDA graph for better performance (auto-disabled in cloud environments)"}),
                 "keep_model_loaded": ("BOOLEAN", {"default": False, "tooltip": "Keep model loaded in memory after processing"}),
             },
         }
