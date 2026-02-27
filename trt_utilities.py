@@ -21,15 +21,40 @@ import sys
 
 # Lazy import tensorrt to avoid import conflicts
 _trt = None
+_trt_available = False
+
 def get_trt():
-    global _trt
+    global _trt, _trt_available
     if _trt is None:
         try:
             import tensorrt as trt
             _trt = trt
+            _trt_available = True
         except ImportError:
-            raise ImportError("TensorRT is not installed. Please install it first.")
+            print("[ComfyUI-RIFE-TensorRT] Warning: TensorRT not available")
+            # Create dummy tensorrt module for graceful fallback
+            import types
+            trt = types.ModuleType('tensorrt')
+            trt.Logger = types.ModuleType('Logger')
+            trt.Logger.ERROR = 0
+            trt.Logger.WARNING = 1
+            trt.BuilderFlag = types.ModuleType('BuilderFlag')
+            trt.BuilderFlag.FP16 = 1
+            trt.BuilderFlag.REFIT = 2
+            trt.OnnxParserFlag = types.ModuleType('OnnxParserFlag')
+            trt.OnnxParserFlag.NATIVE_INSTANCENORM = 1
+            trt.TensorIOMode = types.ModuleType('TensorIOMode')
+            trt.TensorIOMode.INPUT = 0
+            trt.TensorIOMode.OUTPUT = 1
+            trt.nptype = lambda x: np.float32  # dummy fallback
+            trt.IProgressMonitor = object  # dummy fallback
+            _trt = trt
+            _trt_available = False
     return _trt
+
+def is_trt_available():
+    global _trt_available
+    return _trt_available
 
 def diagnose_cuda_environment():
     """Diagnose CUDA environment and provide helpful error messages"""
@@ -55,6 +80,14 @@ def diagnose_cuda_environment():
         print(f"❌ Error checking PyTorch CUDA: {e}")
         return False
     
+    # Check TensorRT availability
+    if not is_trt_available():
+        print("❌ TensorRT is not installed or not available")
+        print("Please install TensorRT using:")
+        print("1. python install.py (auto-install)")
+        print("2. pip install -r requirements.txt (manual)")
+        return False
+    
     # Check TensorRT CUDA compatibility
     try:
         trt = get_trt()
@@ -74,9 +107,6 @@ def diagnose_cuda_environment():
             print("3. Verify CUDA toolkit installation")
             print("4. Try: nvidia-smi to check GPU status")
             return False
-    except ImportError as e:
-        print(f"❌ TensorRT import failed: {e}")
-        return False
     except Exception as e:
         print(f"❌ Error checking TensorRT: {e}")
         return False
