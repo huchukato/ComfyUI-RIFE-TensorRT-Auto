@@ -23,34 +23,6 @@ import sys
 _trt = None
 _trt_available = False
 
-# Create dummy classes that need to be accessible globally
-class DummyIProgressMonitor:
-    def __init__(self):
-        pass
-    def phase_start(self, *args, **kwargs):
-        pass
-    def phase_finish(self, *args, **kwargs):
-        pass
-    def step_complete(self, *args, **kwargs):
-        return True
-
-class DummyLogger:
-    def __init__(self, level):
-        self.level = level
-    ERROR = 0
-    WARNING = 1
-
-class DummyBuilderFlag:
-    FP16 = 1
-    REFIT = 2
-
-class DummyOnnxParserFlag:
-    NATIVE_INSTANCENORM = 1
-
-class DummyTensorIOMode:
-    INPUT = 0
-    OUTPUT = 1
-
 def get_trt():
     global _trt, _trt_available
     if _trt is None:
@@ -60,23 +32,7 @@ def get_trt():
             _trt_available = True
         except ImportError:
             print("[ComfyUI-RIFE-TensorRT] Warning: TensorRT not available")
-            # Create dummy tensorrt module for graceful fallback
-            import types
-            trt = types.ModuleType('tensorrt')
-            
-            # Use pre-defined dummy classes
-            trt.Logger = DummyLogger
-            trt.BuilderFlag = DummyBuilderFlag
-            trt.OnnxParserFlag = DummyOnnxParserFlag
-            trt.TensorIOMode = DummyTensorIOMode
-            
-            # Create dummy nptype function
-            trt.nptype = lambda x: np.float32
-            
-            # Use pre-defined dummy class
-            trt.IProgressMonitor = DummyIProgressMonitor
-            
-            _trt = trt
+            _trt = None
             _trt_available = False
     return _trt
 
@@ -84,104 +40,18 @@ def is_trt_available():
     global _trt_available
     return _trt_available
 
-class TQDMProgressMonitor:
-    """Progress monitor that works with both real and dummy TensorRT"""
-    def __init__(self):
-        trt = get_trt()
-        # Initialize attributes regardless of TensorRT availability
-        self._active_phases = {}
-        self._step_result = True
-        self.max_indent = 5
-        
-        # Only inherit from real TensorRT IProgressMonitor if available
-        if is_trt_available():
-            try:
-                trt.IProgressMonitor.__init__(self)
-            except Exception as e:
-                print(f"Warning: Could not initialize IProgressMonitor: {e}")
-        # If dummy, don't try to inherit - just work with our methods
-
-def diagnose_cuda_environment():
-    """Diagnose CUDA environment and provide helpful error messages"""
-    print("🔍 Diagnosing CUDA environment...")
-    
-    # Check CUDA availability
-    try:
-        import torch
-        if not torch.cuda.is_available():
-            print("❌ CUDA is not available in PyTorch")
-            print("Please check:")
-            print("1. CUDA is properly installed")
-            print("2. PyTorch was installed with CUDA support")
-            print("3. NVIDIA drivers are up to date")
-            return False
-        
-        print(f"✅ PyTorch CUDA version: {torch.version.cuda}")
-        print(f"✅ CUDA device count: {torch.cuda.device_count()}")
-        if torch.cuda.device_count() > 0:
-            print(f"✅ Current CUDA device: {torch.cuda.get_device_name()}")
-            print(f"✅ CUDA device memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
-    except Exception as e:
-        print(f"❌ Error checking PyTorch CUDA: {e}")
-        return False
-    
-    # Check TensorRT availability
-    if not is_trt_available():
-        print("❌ TensorRT is not installed or not available")
-        print("Please install TensorRT using:")
-        print("1. python install.py (auto-install)")
-        print("2. pip install -r requirements.txt (manual)")
-        return False
-    
-    # Check TensorRT CUDA compatibility
-    try:
-        trt = get_trt()
-        print(f"✅ TensorRT version: {trt.__version__}")
-        
-        # Try to create a simple builder to test CUDA initialization
-        try:
-            logger = trt.Logger(trt.Logger.WARNING)
-            builder = trt.Builder(logger)
-            print("✅ TensorRT CUDA initialization successful")
-            return True
-        except Exception as e:
-            print(f"❌ TensorRT CUDA initialization failed: {e}")
-            print("Possible solutions:")
-            print("1. Restart your system to clear CUDA state")
-            print("2. Check NVIDIA driver version compatibility")
-            print("3. Verify CUDA toolkit installation")
-            print("4. Try: nvidia-smi to check GPU status")
-            return False
-    except Exception as e:
-        print(f"❌ Error checking TensorRT: {e}")
-        return False
-
-def check_nvidia_driver():
-    """Check NVIDIA driver status"""
-    try:
-        result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            print("✅ NVIDIA driver is working")
-            # Extract driver version
-            lines = result.stdout.split('\n')
-            for line in lines:
-                if 'Driver Version' in line:
-                    print(f"✅ {line.strip()}")
-                    break
-            return True
-        else:
-            print("❌ nvidia-smi command failed")
-            return False
-    except FileNotFoundError:
-        print("❌ nvidia-smi not found - NVIDIA drivers may not be installed")
-        return False
-    except Exception as e:
-        print(f"❌ Error running nvidia-smi: {e}")
-        return False
-
 def get_trt_logger():
     trt = get_trt()
-    return trt.Logger(trt.Logger.ERROR)
+    if trt:
+        return trt.Logger(trt.Logger.ERROR)
+    else:
+        # Create a simple fallback logger
+        class SimpleLogger:
+            def __init__(self, level):
+                self.level = level
+            ERROR = 0
+            WARNING = 1
+        return SimpleLogger(SimpleLogger.ERROR)
 
 TRT_LOGGER = get_trt_logger()
 G_LOGGER.module_severity = G_LOGGER.ERROR
