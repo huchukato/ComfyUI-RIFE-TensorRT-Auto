@@ -81,6 +81,12 @@ def detect_cloud_environment():
 # Auto-detect CUDA and install appropriate TensorRT packages
 def _auto_install_tensorrt():
     """Auto-detect CUDA version and install appropriate TensorRT packages if needed"""
+    # Check if auto-install is disabled
+    disable_auto_install = os.environ.get("DISABLE_TENSORRT_AUTO_INSTALL", "false").lower() == "true"
+    if disable_auto_install:
+        print("[ComfyUI-RIFE-TensorRT] Auto-installation disabled via DISABLE_TENSORRT_AUTO_INSTALL")
+        return True
+    
     try:
         # Check if TensorRT is already installed
         try:
