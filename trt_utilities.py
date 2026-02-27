@@ -160,13 +160,28 @@ def safe_cuda_call(func, *args, max_retries=3, **kwargs):
                 
                 # Small delay before retry
                 import time
-                time.sleep(1)
+                time.sleep(2)  # Increased delay for cloud environments
                 
                 if attempt == max_retries - 2:  # Last attempt
                     print("🔄 Final retry attempt...")
             else:
                 # Re-raise the error if it's not ERROR 35 or we've exhausted retries
                 raise e
+
+def safe_cuda_call_with_graph_fallback(func, *args, **kwargs):
+    """Wrapper with CUDA graph fallback for persistent ERROR 35"""
+    try:
+        # First try with CUDA graph enabled
+        return safe_cuda_call(func, *args, **kwargs)
+    except RuntimeError as e:
+        if "CUDA ERROR: 35" in str(e):
+            print("⚠️  CUDA ERROR 35 persists, trying without CUDA graph...")
+            # Force disable CUDA graph and retry
+            if 'use_cuda_graph' in kwargs:
+                kwargs['use_cuda_graph'] = False
+                print("🔄 Retrying inference without CUDA graph optimization...")
+                return safe_cuda_call(func, *args, max_retries=2, **kwargs)
+        raise e
 
 class TQDMProgressMonitor(trt.IProgressMonitor):
     def __init__(self):
@@ -439,7 +454,7 @@ class Engine:
         nvtx.range_pop()
 
     def infer(self, feed_dict, stream, use_cuda_graph=False):
-        """Inference with CUDA error recovery"""
+        """Inference with CUDA error recovery and graph fallback"""
         def _do_inference():
             for name, buf in feed_dict.items():
                 self.tensors[name].copy_(buf)
@@ -474,5 +489,5 @@ class Engine:
             nvtx.range_pop()
             return self.tensors
         
-        # Use safe wrapper with retry mechanism
-        return safe_cuda_call(_do_inference)
+        # Use safe wrapper with CUDA graph fallback for cloud environments
+        return safe_cuda_call_with_graph_fallback(_do_inference, use_cuda_graph=use_cuda_graph)
