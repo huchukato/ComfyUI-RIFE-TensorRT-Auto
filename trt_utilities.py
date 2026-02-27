@@ -248,6 +248,8 @@ class Engine:
         self.context = None
         self.buffers = OrderedDict()
         self.tensors = OrderedDict()
+        self.inputs = {}  # Initialize here
+        self.outputs = {}  # Initialize here
         self.cuda_graph_instance = None  # cuda graph
         self.graph = None
 
