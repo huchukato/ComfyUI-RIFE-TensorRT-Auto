@@ -23,6 +23,34 @@ import sys
 _trt = None
 _trt_available = False
 
+# Create dummy classes that need to be accessible globally
+class DummyIProgressMonitor:
+    def __init__(self):
+        pass
+    def phase_start(self, *args, **kwargs):
+        pass
+    def phase_finish(self, *args, **kwargs):
+        pass
+    def step_complete(self, *args, **kwargs):
+        return True
+
+class DummyLogger:
+    def __init__(self, level):
+        self.level = level
+    ERROR = 0
+    WARNING = 1
+
+class DummyBuilderFlag:
+    FP16 = 1
+    REFIT = 2
+
+class DummyOnnxParserFlag:
+    NATIVE_INSTANCENORM = 1
+
+class DummyTensorIOMode:
+    INPUT = 0
+    OUTPUT = 1
+
 def get_trt():
     global _trt, _trt_available
     if _trt is None:
@@ -36,49 +64,16 @@ def get_trt():
             import types
             trt = types.ModuleType('tensorrt')
             
-            # Create Logger class with ERROR attribute
-            class DummyLogger:
-                def __init__(self, level):
-                    self.level = level
-                ERROR = 0
-                WARNING = 1
-            
+            # Use pre-defined dummy classes
             trt.Logger = DummyLogger
-            
-            # Create BuilderFlag class with flags
-            class DummyBuilderFlag:
-                FP16 = 1
-                REFIT = 2
-            
             trt.BuilderFlag = DummyBuilderFlag
-            
-            # Create OnnxParserFlag class with flags
-            class DummyOnnxParserFlag:
-                NATIVE_INSTANCENORM = 1
-            
             trt.OnnxParserFlag = DummyOnnxParserFlag
-            
-            # Create TensorIOMode class with modes
-            class DummyTensorIOMode:
-                INPUT = 0
-                OUTPUT = 1
-            
             trt.TensorIOMode = DummyTensorIOMode
             
             # Create dummy nptype function
             trt.nptype = lambda x: np.float32
             
-            # Create dummy IProgressMonitor class that works without inheritance
-            class DummyIProgressMonitor:
-                def __init__(self):
-                    pass
-                def phase_start(self, *args, **kwargs):
-                    pass
-                def phase_finish(self, *args, **kwargs):
-                    pass
-                def step_complete(self, *args, **kwargs):
-                    return True
-            
+            # Use pre-defined dummy class
             trt.IProgressMonitor = DummyIProgressMonitor
             
             _trt = trt
