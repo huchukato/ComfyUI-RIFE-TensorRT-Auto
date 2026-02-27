@@ -1,8 +1,18 @@
 #!/bin/bash
 
-# Auto-install script for ComfyUI RIFE TensorRT
-# Detects CUDA version and installs appropriate requirements
+# FALLBACK install script for ComfyUI RIFE TensorRT
+# 
+# NOTE: This is a BACKUP script - auto-installation is recommended!
+# 
+# PRIMARY METHOD (Recommended):
+# 1. pip install -r requirements.txt
+# 2. Restart ComfyUI
+# 3. Node auto-detects CUDA and installs TensorRT automatically
+#
+# Use this script ONLY if auto-installation fails!
+#
 
+echo "⚠️  FALLBACK INSTALLATION - Use only if auto-installation fails!"
 echo "🔍 Detecting CUDA version..."
 
 # Try to detect CUDA version
@@ -30,10 +40,14 @@ echo "📦 Installing requirements for CUDA $CUDA_MAJOR..."
 
 # Install appropriate requirements based on CUDA version
 if [ "$CUDA_MAJOR" = "13" ]; then
-    echo "🚀 Using CUDA 13 requirements (RTX 50 series)"
+    echo "🚀 Installing CUDA 13 requirements (RTX 50 series)"
+    echo "📦 Installing base dependencies + CUDA 13 TensorRT..."
     pip install -r requirements.txt
 elif [ "$CUDA_MAJOR" = "12" ]; then
-    echo "🔧 Using CUDA 12 requirements (RTX 30/40 series)"
+    echo "🔧 Installing CUDA 12 requirements (RTX 30/40 series)"
+    echo "📦 Installing base dependencies + CUDA 12 TensorRT..."
+    pip install -r requirements.txt
+    echo "📦 Installing CUDA 12 specific TensorRT packages..."
     pip install -r requirements_cu12.txt
 else
     echo "❌ Unsupported CUDA version: $CUDA_VERSION"
@@ -42,8 +56,9 @@ else
 fi
 
 if [ $? -eq 0 ]; then
-    echo "✅ Installation completed successfully!"
-    echo "🎯 You can now use the ComfyUI RIFE TensorRT node"
+    echo "✅ Fallback installation completed!"
+    echo "🎯 You can now use ComfyUI RIFE TensorRT node"
+    echo "💡 In the future, try auto-installation by just installing requirements.txt"
 else
     echo "❌ Installation failed!"
     exit 1
