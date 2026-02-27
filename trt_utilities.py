@@ -259,9 +259,10 @@ def safe_cuda_call_with_graph_fallback(func, *args, **kwargs):
 class TQDMProgressMonitor:
     def __init__(self):
         trt = get_trt()
-        # Only call parent __init__ if it's not the dummy class
-        if hasattr(trt.IProgressMonitor, '__init__') and trt.IProgressMonitor.__init__ is not DummyIProgressMonitor.__init__:
+        # Only call parent __init__ if TensorRT is actually available (not dummy)
+        if is_trt_available():
             trt.IProgressMonitor.__init__(self)
+        # If dummy, don't call parent __init__ - just initialize our attributes
         self._active_phases = {}
         self._step_result = True
         self.max_indent = 5
