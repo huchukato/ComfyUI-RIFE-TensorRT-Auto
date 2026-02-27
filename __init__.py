@@ -12,7 +12,7 @@ import folder_paths
 import time
 
 def detect_cloud_environment():
-    """Detect if running in cloud environment where CUDA graph may have issues"""
+    """Detect if running in cloud environment with CUDA 12 where CUDA graph may have issues"""
     # Check for common cloud environment indicators
     cloud_indicators = [
         'RUNPOD', 'COLAB', 'KAGGLE', 'PAPERSPACE', 'GOOGLE_COLAB',
@@ -23,12 +23,36 @@ def detect_cloud_environment():
     for indicator in cloud_indicators:
         if indicator in os.environ:
             print(f"🌩️  Detected cloud environment: {indicator}")
-            return True
+            
+            # Check CUDA version - only disable CUDA graph for CUDA 12
+            try:
+                import torch
+                cuda_version = torch.version.cuda
+                if cuda_version and cuda_version.startswith('12'):
+                    print(f"🌩️  CUDA {cuda_version} detected in cloud environment - disabling CUDA graph for stability")
+                    return True
+                else:
+                    print(f"✅ CUDA {cuda_version} detected - keeping CUDA graph enabled")
+                    return False
+            except:
+                print("⚠️  Could not detect CUDA version, disabling CUDA graph for safety")
+                return True
     
     # Check if running in Docker/container
     if os.path.exists('/.dockerenv'):
         print("🌩️  Detected Docker environment")
-        return True
+        try:
+            import torch
+            cuda_version = torch.version.cuda
+            if cuda_version and cuda_version.startswith('12'):
+                print(f"🌩️  CUDA {cuda_version} in Docker - disabling CUDA graph")
+                return True
+            else:
+                print(f"✅ CUDA {cuda_version} in Docker - keeping CUDA graph enabled")
+                return False
+        except:
+            print("⚠️  Could not detect CUDA version in Docker, disabling CUDA graph")
+            return True
     
     # Check for common cloud provider files
     cloud_files = [
@@ -39,7 +63,18 @@ def detect_cloud_environment():
     for file_path in cloud_files:
         if os.path.exists(file_path):
             print("🌩️  Detected cloud environment via cloud-init")
-            return True
+            try:
+                import torch
+                cuda_version = torch.version.cuda
+                if cuda_version and cuda_version.startswith('12'):
+                    print(f"🌩️  CUDA {cuda_version} in cloud - disabling CUDA graph")
+                    return True
+                else:
+                    print(f"✅ CUDA {cuda_version} in cloud - keeping CUDA graph enabled")
+                    return False
+            except:
+                print("⚠️  Could not detect CUDA version, disabling CUDA graph for safety")
+                return True
     
     return False
 
