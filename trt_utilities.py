@@ -84,6 +84,23 @@ def is_trt_available():
     global _trt_available
     return _trt_available
 
+class TQDMProgressMonitor:
+    """Progress monitor that works with both real and dummy TensorRT"""
+    def __init__(self):
+        trt = get_trt()
+        # Initialize attributes regardless of TensorRT availability
+        self._active_phases = {}
+        self._step_result = True
+        self.max_indent = 5
+        
+        # Only inherit from real TensorRT IProgressMonitor if available
+        if is_trt_available():
+            try:
+                trt.IProgressMonitor.__init__(self)
+            except Exception as e:
+                print(f"Warning: Could not initialize IProgressMonitor: {e}")
+        # If dummy, don't try to inherit - just work with our methods
+
 def diagnose_cuda_environment():
     """Diagnose CUDA environment and provide helpful error messages"""
     print("🔍 Diagnosing CUDA environment...")
