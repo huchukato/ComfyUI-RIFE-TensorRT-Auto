@@ -291,7 +291,7 @@ class CustomResolutionConfig:
     RETURN_TYPES = ("RIFE_RESOLUTION_CONFIG",)
     RETURN_NAMES = ("resolution_config",)
     FUNCTION = "configure"
-    CATEGORY = "tensorrt"
+    CATEGORY = "⚡️ TensorRT/RIFE"
     DESCRIPTION = "Configure custom resolution dimensions for RIFE TensorRT engine."
 
     def configure(self, min_dim, opt_dim, max_dim):
@@ -341,7 +341,7 @@ class AutoLoadRifeTensorrtModel:
 
     RETURN_NAMES = ("rife_trt_model",)
     RETURN_TYPES = ("RIFE_TRT_MODEL",)
-    CATEGORY = "tensorrt"
+    CATEGORY = "⚡️ TensorRT/RIFE"
     DESCRIPTION = "Load RIFE tensorrt models, they will be built automatically if not found."
     FUNCTION = "load_rife_tensorrt_model"
 
@@ -429,7 +429,7 @@ class AutoRifeTensorrt:
 
     RETURN_TYPES = ("IMAGE", )
     FUNCTION = "vfi"
-    CATEGORY = "tensorrt"
+    CATEGORY = "⚡️ TensorRT/RIFE"
     OUTPUT_NODE=True
 
     def vfi(
