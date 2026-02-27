@@ -12,13 +12,24 @@ from polygraphy.backend.trt import (
     save_engine,
 )
 from polygraphy.logger import G_LOGGER
-import tensorrt as trt
 from logging import error, warning
 from tqdm import tqdm
 import copy
 import cuda.bindings.runtime as cudart
 import subprocess
 import sys
+
+# Lazy import tensorrt to avoid import conflicts
+_trt = None
+def get_trt():
+    global _trt
+    if _trt is None:
+        try:
+            import tensorrt as trt
+            _trt = trt
+        except ImportError:
+            raise ImportError("TensorRT is not installed. Please install it first.")
+    return _trt
 
 def diagnose_cuda_environment():
     """Diagnose CUDA environment and provide helpful error messages"""
@@ -46,7 +57,7 @@ def diagnose_cuda_environment():
     
     # Check TensorRT CUDA compatibility
     try:
-        import tensorrt as trt
+        trt = get_trt()
         print(f"✅ TensorRT version: {trt.__version__}")
         
         # Try to create a simple builder to test CUDA initialization
@@ -93,7 +104,11 @@ def check_nvidia_driver():
         print(f"❌ Error running nvidia-smi: {e}")
         return False
 
-TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
+def get_trt_logger():
+    trt = get_trt()
+    return trt.Logger(trt.Logger.ERROR)
+
+TRT_LOGGER = get_trt_logger()
 G_LOGGER.module_severity = G_LOGGER.ERROR
 
 # Map of numpy dtype -> torch dtype
@@ -183,8 +198,9 @@ def safe_cuda_call_with_graph_fallback(func, *args, **kwargs):
                 return safe_cuda_call(func, *args, max_retries=2, **kwargs)
         raise e
 
-class TQDMProgressMonitor(trt.IProgressMonitor):
+class TQDMProgressMonitor:
     def __init__(self):
+        trt = get_trt()
         trt.IProgressMonitor.__init__(self)
         self._active_phases = {}
         self._step_result = True
@@ -358,6 +374,7 @@ class Engine:
             config_kwargs["tactic_sources"] = []
 
         try:
+            trt = get_trt()
             network = network_from_onnx_path(
                 onnx_path, flags=[trt.OnnxParserFlag.NATIVE_INSTANCENORM]
             )
@@ -373,6 +390,7 @@ class Engine:
         config = builder.create_builder_config()
         config.progress_monitor = TQDMProgressMonitor()
 
+        trt = get_trt()
         config.set_flag(trt.BuilderFlag.FP16) if fp16 else None
         config.set_flag(trt.BuilderFlag.REFIT) if enable_refit else None
 
@@ -437,8 +455,9 @@ class Engine:
             else:
                 shape = self.context.get_tensor_shape(name)
 
-            dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+            trt_instance = get_trt()
+            dtype = trt_instance.nptype(self.engine.get_tensor_dtype(name))
+            if self.engine.get_tensor_mode(name) == trt_instance.TensorIOMode.INPUT:
                 self.context.set_input_shape(name, shape)
             tensor = torch.empty(
                 tuple(shape), dtype=numpy_to_torch_dtype_dict[dtype]
@@ -447,7 +466,7 @@ class Engine:
             self.buffers[name] = tensor
             self.tensors[name] = tensor
             
-            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+            if self.engine.get_tensor_mode(name) == trt_instance.TensorIOMode.INPUT:
                 self.inputs[name] = tensor
             else:
                 self.outputs[name] = tensor
