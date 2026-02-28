@@ -428,7 +428,6 @@ class AutoRifeTensorrt:
                 "rife_trt_model": ("RIFE_TRT_MODEL", {"tooltip": "Tensorrt model built and loaded"}),
                 "clear_cache_after_n_frames": ("INT", {"default": 100, "min": 1, "max": 1000, "tooltip": "Clear CUDA cache after processing this many frames"}),
                 "multiplier": ("INT", {"default": 2, "min": 1, "tooltip": "Frame interpolation multiplier"}),
-                "use_cuda_graph": ("BOOLEAN", {"default": not detect_cloud_environment(), "tooltip": "Use CUDA graph for better performance (auto-disabled in cloud environments)"}),
                 "keep_model_loaded": ("BOOLEAN", {"default": False, "tooltip": "Keep model loaded in memory after processing"}),
             },
         }
@@ -444,7 +443,6 @@ class AutoRifeTensorrt:
         rife_trt_model,
         clear_cache_after_n_frames=100,
         multiplier=2,
-        use_cuda_graph=True,
         keep_model_loaded=False,
     ):
         B, H, W, C = frames.shape
@@ -455,6 +453,21 @@ class AutoRifeTensorrt:
         }
 
         cudaStream = cuda.Stream()
+        
+        # Auto-detect CUDA graph usage based on CUDA version
+        use_cuda_graph = False
+        try:
+            import torch
+            cuda_version = torch.version.cuda
+            if cuda_version and cuda_version.startswith('13'):
+                use_cuda_graph = True
+                print(f"✅ CUDA {cuda_version} detected - enabling CUDA graph for better performance")
+            else:
+                use_cuda_graph = False
+                print(f"⚠️  CUDA {cuda_version} detected - disabling CUDA graph for stability")
+        except:
+            use_cuda_graph = False
+            print("⚠️  Could not detect CUDA version - disabling CUDA graph for safety")
 
         # Use the provided model directly
         engine = rife_trt_model
