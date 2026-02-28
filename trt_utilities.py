@@ -462,4 +462,4 @@ class Engine:
             return self.tensors
         
         # Use safe wrapper with CUDA graph fallback for cloud environments
-        return safe_cuda_call_with_graph_fallback(_do_inference, use_cuda_graph=use_cuda_graph)
+        return safe_cuda_call_with_graph_fallback(_do_inference)
