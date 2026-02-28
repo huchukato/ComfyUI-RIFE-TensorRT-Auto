@@ -99,16 +99,28 @@ def _auto_install_tensorrt():
         # Detect CUDA version
         cuda_version = None
         
-        # Try nvcc command
+        # Try PyTorch CUDA version first (most reliable on cloud platforms)
         try:
-            result = subprocess.run("nvcc --version", shell=True, capture_output=True, text=True)
-            if result.returncode == 0:
-                match = re.search(r"release (\d+\.\d+)", result.stdout)
-                if match:
-                    cuda_version = match.group(1)
-                    print(f"✅ Detected CUDA version: {cuda_version}")
-        except:
-            pass
+            import torch
+            if hasattr(torch, 'version') and hasattr(torch.version, 'cuda'):
+                pytorch_cuda = torch.version.cuda
+                if pytorch_cuda:
+                    cuda_version = pytorch_cuda
+                    print(f"✅ Detected CUDA version from PyTorch: {cuda_version}")
+        except Exception as e:
+            print(f"⚠️  Could not detect CUDA from PyTorch: {e}")
+        
+        # Try nvcc command as fallback
+        if not cuda_version:
+            try:
+                result = subprocess.run("nvcc --version", shell=True, capture_output=True, text=True)
+                if result.returncode == 0:
+                    match = re.search(r"release (\d+\.\d+)", result.stdout)
+                    if match:
+                        cuda_version = match.group(1)
+                        print(f"✅ Detected CUDA version from nvcc: {cuda_version}")
+            except:
+                pass
         
         # Try CUDA_PATH
         if not cuda_version and os.environ.get("CUDA_PATH"):
