@@ -336,12 +336,8 @@ class Engine:
         builder = network[0]
         config = builder.create_builder_config()
         
-        # Simple progress monitor - only if TensorRT is available
-        if is_trt_available():
-            try:
-                config.progress_monitor = TQDMProgressMonitor()
-            except Exception as e:
-                print(f"Warning: Could not set progress monitor: {e}")
+        # Skip progress monitor for simplicity - avoid interface issues
+        # config.progress_monitor = TQDMProgressMonitor()
 
         trt = get_trt()
         config.set_flag(trt.BuilderFlag.FP16) if fp16 else None
