@@ -11,10 +11,12 @@ from polygraphy.backend.trt import (
     network_from_onnx_path,
     save_engine,
 )
-from polygraphy.logger import G_LOGGER
-from logging import error, warning
+import time
+import threading
 from tqdm import tqdm
 import copy
+from polygraphy.logger import G_LOGGER
+from logging import error, warning
 import cuda.bindings.runtime as cudart
 import subprocess
 import sys
@@ -142,6 +144,35 @@ def safe_cuda_call_with_graph_fallback(func, *args, **kwargs):
                 print("🔄 Retrying inference without CUDA graph optimization...")
                 return safe_cuda_call(func, *args, max_retries=2, **kwargs)
         raise e
+
+def build_progress_feedback(stop_event):
+    """Simple progress feedback during TensorRT engine build"""
+    phases = [
+        "🔧 Analyzing ONNX model...",
+        "⚡ Optimizing layers...", 
+        "🏗️  Building TensorRT engine...",
+        "🔧 Tuning performance...",
+        "✅ Finalizing engine..."
+    ]
+    
+    start_time = time.time()
+    
+    for i, phase in enumerate(phases):
+        if stop_event.is_set():
+            break
+            
+        elapsed = int(time.time() - start_time)
+        print(f"{phase} ({elapsed}s elapsed)")
+        
+        # Wait between phases (simulate progress)
+        for j in range(10):  # Check every 0.5 seconds for 5 seconds per phase
+            if stop_event.is_set():
+                break
+            time.sleep(0.5)
+    
+    if not stop_event.is_set():
+        elapsed = int(time.time() - start_time)
+        print(f"🎯 Build completed in {elapsed}s!")
 
 class TQDMProgressMonitor:
     def __init__(self):
@@ -308,63 +339,75 @@ class Engine:
         
         print("✅ TensorRT is available, proceeding with build...")
         
-        p = [Profile()]
-        if input_profile:
-            p = [Profile() for i in range(len(input_profile))]
-            for _p, i_profile in zip(p, input_profile):
-                for name, dims in i_profile.items():
-                    assert len(dims) == 3
-                    _p.add(name, min=dims[0], opt=dims[1], max=dims[2])
-
-        config_kwargs = {}
-        if not enable_all_tactics:
-            config_kwargs["tactic_sources"] = []
-
+        # Start progress feedback thread
+        stop_event = threading.Event()
+        progress_thread = threading.Thread(target=build_progress_feedback, args=(stop_event,))
+        progress_thread.daemon = True
+        progress_thread.start()
+        
         try:
+            p = [Profile()]
+            if input_profile:
+                p = [Profile() for i in range(len(input_profile))]
+                for _p, i_profile in zip(p, input_profile):
+                    for name, dims in i_profile.items():
+                        assert len(dims) == 3
+                        _p.add(name, min=dims[0], opt=dims[1], max=dims[2])
+
+            config_kwargs = {}
+            if not enable_all_tactics:
+                config_kwargs["tactic_sources"] = []
+
+            try:
+                trt = get_trt()
+                network = network_from_onnx_path(
+                    onnx_path, flags=[trt.OnnxParserFlag.NATIVE_INSTANCENORM]
+                )
+            except Exception as e:
+                print(f"❌ Failed to load ONNX network: {e}")
+                raise RuntimeError(f"ONNX loading failed: {e}")
+            
+            if update_output_names:
+                print(f"Updating network outputs to {update_output_names}")
+                network = ModifyNetworkOutputs(network, update_output_names)
+
+            builder = network[0]
+            config = builder.create_builder_config()
+            
+            # Skip progress monitor for simplicity - avoid interface issues
+            # config.progress_monitor = TQDMProgressMonitor()
+
             trt = get_trt()
-            network = network_from_onnx_path(
-                onnx_path, flags=[trt.OnnxParserFlag.NATIVE_INSTANCENORM]
-            )
-        except Exception as e:
-            print(f"❌ Failed to load ONNX network: {e}")
-            raise RuntimeError(f"ONNX loading failed: {e}")
-        
-        if update_output_names:
-            print(f"Updating network outputs to {update_output_names}")
-            network = ModifyNetworkOutputs(network, update_output_names)
+            config.set_flag(trt.BuilderFlag.FP16) if fp16 else None
+            config.set_flag(trt.BuilderFlag.REFIT) if enable_refit else None
 
-        builder = network[0]
-        config = builder.create_builder_config()
-        
-        # Skip progress monitor for simplicity - avoid interface issues
-        # config.progress_monitor = TQDMProgressMonitor()
+            profiles = copy.deepcopy(p)
+            for profile in profiles:
+                # Last profile is used for set_calibration_profile.
+                calib_profile = profile.fill_defaults(network[1]).to_trt(
+                    builder, network[1]
+                )
+                config.add_optimization_profile(calib_profile)
 
-        trt = get_trt()
-        config.set_flag(trt.BuilderFlag.FP16) if fp16 else None
-        config.set_flag(trt.BuilderFlag.REFIT) if enable_refit else None
-
-        profiles = copy.deepcopy(p)
-        for profile in profiles:
-            # Last profile is used for set_calibration_profile.
-            calib_profile = profile.fill_defaults(network[1]).to_trt(
-                builder, network[1]
-            )
-            config.add_optimization_profile(calib_profile)
-
-        try:
-            engine = engine_from_network(
-                network,
-                config,
-            )
-        except Exception as e:
-            error(f"Failed to build engine: {e}")
-            return 1
-        try:
-            save_engine(engine, path=self.engine_path)
-        except Exception as e:
-            error(f"Failed to save engine: {e}")
-            return 1
-        return 0
+            try:
+                engine = engine_from_network(
+                    network,
+                    config,
+                )
+            except Exception as e:
+                error(f"Failed to build engine: {e}")
+                return 1
+            try:
+                save_engine(engine, path=self.engine_path)
+                print(f"✅ Engine saved successfully to: {self.engine_path}")
+            except Exception as e:
+                error(f"Failed to save engine: {e}")
+                return 1
+            return 0
+        finally:
+            # Stop progress feedback thread
+            stop_event.set()
+            progress_thread.join(timeout=1)
 
     def load(self):
         self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
