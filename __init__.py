@@ -88,13 +88,19 @@ def _auto_install_tensorrt():
         return True
     
     try:
-        # Check if TensorRT is already installed
-        try:
-            import tensorrt
-            print("✅ TensorRT already installed")
-            return True
-        except ImportError:
-            print("🔍 TensorRT not found, detecting CUDA version...")
+        # Check if TensorRT is already installed - with retry mechanism
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                import tensorrt
+                print(f"✅ TensorRT already installed (version: {tensorrt.__version__})")
+                return True
+            except ImportError:
+                if attempt < max_retries - 1:
+                    print(f"🔍 TensorRT not found (attempt {attempt + 1}/{max_retries}), waiting 2 seconds...")
+                    time.sleep(2)  # Wait for potential concurrent installation
+                else:
+                    print("🔍 TensorRT not found after retries, detecting CUDA version...")
         
         # Detect CUDA version
         cuda_version = None
