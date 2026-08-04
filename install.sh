@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# FALLBACK install script for ComfyUI RIFE TensorRT
-# 
+# FALLBACK install script for ComfyUI RIFE TensorRT Auto (Linux/macOS)
+#
 # NOTE: This is a BACKUP script - auto-installation is recommended!
-# 
+#
 # PRIMARY METHOD (Recommended):
 # 1. pip install -r requirements.txt
 # 2. Restart ComfyUI
@@ -11,9 +11,12 @@
 #
 # Use this script ONLY if auto-installation fails!
 #
+# The NVIDIA CUDA Toolkit must already be installed on the system.
+# This script installs only the matching TensorRT wheels via pip.
+#
 
-echo "⚠️  FALLBACK INSTALLATION - Use only if auto-installation fails!"
-echo "🔍 Detecting CUDA version..."
+echo "FALLBACK INSTALLATION - Use only if auto-installation fails!"
+echo "Detecting CUDA version..."
 
 # Try to detect CUDA version
 CUDA_VERSION=""
@@ -40,28 +43,28 @@ echo "📦 Installing requirements for CUDA $CUDA_MAJOR..."
 
 # Install appropriate requirements based on CUDA version
 if [ "$CUDA_MAJOR" = "13" ]; then
-    echo "🚀 Installing CUDA 13 requirements (RTX 50 series)"
-    echo "📦 Installing base dependencies + CUDA 13 TensorRT..."
-    pip install -r requirements.txt
-    echo "📦 Installing CUDA 13 specific TensorRT packages..."
-    pip install -r requirements_cu13.txt
+    echo "Installing CUDA 13 requirements (RTX 50 series)"
+    echo "Installing base dependencies + CUDA 13 TensorRT..."
+    python3 -m pip install --prefer-binary -r requirements.txt
+    echo "Installing CUDA 13 specific TensorRT packages..."
+    python3 -m pip install --prefer-binary -r requirements_cu13.txt
 elif [ "$CUDA_MAJOR" = "12" ]; then
-    echo "🔧 Installing CUDA 12 requirements (RTX 30/40 series)"
-    echo "📦 Installing base dependencies + CUDA 12 TensorRT..."
-    pip install -r requirements.txt
-    echo "📦 Installing CUDA 12 specific TensorRT packages..."
-    pip install -r requirements_cu12.txt
+    echo "Installing CUDA 12 requirements (RTX 30/40 series)"
+    echo "Installing base dependencies + CUDA 12 TensorRT..."
+    python3 -m pip install --prefer-binary -r requirements.txt
+    echo "Installing CUDA 12 specific TensorRT packages..."
+    python3 -m pip install --prefer-binary -r requirements_cu12.txt
 else
-    echo "❌ Unsupported CUDA version: $CUDA_VERSION"
+    echo "Unsupported CUDA version: $CUDA_VERSION"
     echo "Supported versions: CUDA 12.x, CUDA 13.x"
     exit 1
 fi
 
 if [ $? -eq 0 ]; then
-    echo "✅ Fallback installation completed!"
-    echo "🎯 You can now use ComfyUI RIFE TensorRT node"
-    echo "💡 In the future, try auto-installation by just installing requirements.txt"
+    echo "Fallback installation completed!"
+    echo "You can now use ComfyUI RIFE TensorRT Auto node"
+    echo "In the future, try auto-installation by just installing requirements.txt"
 else
-    echo "❌ Installation failed!"
+    echo "Installation failed!"
     exit 1
 fi

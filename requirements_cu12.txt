@@ -1,12 +1,9 @@
-# CUDA 12 specific packages (RTX 30/40 series, CUDA 12.x)
-# 
-# NOTE: This file is for REFERENCE ONLY - manual installation
-# The recommended method is AUTO-INSTALLATION via the node:
-# - Just install requirements.txt and restart ComfyUI
-# - The node will auto-detect CUDA and install TensorRT automatically
+# CUDA 12 specific TensorRT packages (RTX 30/40 series, CUDA 12.x)
 #
-# Use this file ONLY if auto-installation fails or for manual setup
+# NOTE: cuda-toolkit is NOT installed via pip. Install the NVIDIA CUDA Toolkit separately if needed.
+# The node will auto-detect CUDA 12 and install these packages automatically.
 #
+# Use this file ONLY if auto-installation fails or for manual setup.
 # Installation order for MANUAL setup only:
 # 1. pip install -r requirements.txt (base dependencies)
 # 2. pip install -r requirements_cu12.txt (CUDA 12 specific TensorRT)
@@ -14,4 +11,3 @@
 tensorrt-cu12==10.13.3.9
 tensorrt-cu12-libs==10.13.3.9
 tensorrt-cu12-bindings==10.13.3.9
-cuda-toolkit>=12.8.0,<13.0.0

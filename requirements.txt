@@ -1,6 +1,7 @@
 # Base dependencies - TensorRT will be auto-installed based on CUDA detection
-# The node will automatically detect CUDA 12/13 and install appropriate TensorRT packages
-# 
+# The node will automatically detect CUDA 12/13 and install appropriate TensorRT packages.
+# The NVIDIA CUDA Toolkit must already be installed on the system; it is NOT installed via pip.
+#
 # Installation happens automatically when the node loads for the first time
 # No manual TensorRT installation required!
 

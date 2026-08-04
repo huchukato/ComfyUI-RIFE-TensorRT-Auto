@@ -5,10 +5,10 @@ version = "1.1.1"
 license = { file = "LICENSE" }
 
 [project.urls]
-Repository = "https://github.com/silveroxides/ComfyUI_RIFE_TensorRT_Auto"
+Repository = "https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = "silveroxides"
+PublisherId = "huchukato"
 DisplayName = "ComfyUI_RIFE_TensorRT_Auto"
 Icon = ""

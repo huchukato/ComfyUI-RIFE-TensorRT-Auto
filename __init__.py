@@ -80,42 +80,58 @@ def detect_cloud_environment():
 
 # Auto-detect CUDA and install appropriate TensorRT packages
 def _auto_install_tensorrt():
-    """Auto-detect CUDA version and install appropriate TensorRT packages if needed"""
-    # Check if auto-install is disabled
+    """Auto-detect CUDA version and install the matching TensorRT wheels.
+
+    The NVIDIA CUDA Toolkit must already be installed on the system.
+    This function installs only the TensorRT packages via pip.
+    A marker file prevents repeated install attempts on every ComfyUI startup.
+    """
     disable_auto_install = os.environ.get("DISABLE_TENSORRT_AUTO_INSTALL", "false").lower() == "true"
     if disable_auto_install:
         print("[ComfyUI-RIFE-TensorRT] Auto-installation disabled via DISABLE_TENSORRT_AUTO_INSTALL")
         return True
-    
+
+    node_dir = Path(__file__).resolve().parent
+    installed_marker = node_dir / ".tensorrt_auto_installed"
+    failed_marker = node_dir / ".tensorrt_auto_install_failed"
+
+    # Skip if we already installed successfully in a previous run.
+    if installed_marker.exists():
+        return True
+
+    # Avoid retrying too often after a failure (do not block every startup).
+    if failed_marker.exists():
+        try:
+            last_fail = failed_marker.stat().st_mtime
+            if time.time() - last_fail < 3600:
+                print("[ComfyUI-RIFE-TensorRT] Recent failed install attempt; skipping auto-install.")
+                return False
+        except Exception:
+            pass
+
     try:
-        # Check if TensorRT is already installed - with retry mechanism
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                import tensorrt
-                print(f"✅ TensorRT already installed (version: {tensorrt.__version__})")
-                return True
-            except ImportError:
-                if attempt < max_retries - 1:
-                    print(f"🔍 TensorRT not found (attempt {attempt + 1}/{max_retries}), waiting 2 seconds...")
-                    time.sleep(2)  # Wait for potential concurrent installation
-                else:
-                    print("🔍 TensorRT not found after retries, detecting CUDA version...")
-        
+        # Check if TensorRT is already installed.
+        try:
+            import tensorrt
+            print(f"[ComfyUI-RIFE-TensorRT] TensorRT already installed (version: {tensorrt.__version__})")
+            installed_marker.touch()
+            return True
+        except ImportError:
+            print("[ComfyUI-RIFE-TensorRT] TensorRT not found, detecting CUDA version...")
+
         # Detect CUDA version
         cuda_version = None
-        
+
         # Try PyTorch CUDA version first (most reliable on cloud platforms)
         try:
-            import torch
             if hasattr(torch, 'version') and hasattr(torch.version, 'cuda'):
                 pytorch_cuda = torch.version.cuda
                 if pytorch_cuda:
                     cuda_version = pytorch_cuda
-                    print(f"✅ Detected CUDA version from PyTorch: {cuda_version}")
+                    print(f"[ComfyUI-RIFE-TensorRT] Detected CUDA version from PyTorch: {cuda_version}")
         except Exception as e:
-            print(f"⚠️  Could not detect CUDA from PyTorch: {e}")
-        
+            print(f"[ComfyUI-RIFE-TensorRT] Could not detect CUDA from PyTorch: {e}")
+
         # Try nvcc command as fallback
         if not cuda_version:
             try:
@@ -124,81 +140,91 @@ def _auto_install_tensorrt():
                     match = re.search(r"release (\d+\.\d+)", result.stdout)
                     if match:
                         cuda_version = match.group(1)
-                        print(f"✅ Detected CUDA version from nvcc: {cuda_version}")
-            except:
+                        print(f"[ComfyUI-RIFE-TensorRT] Detected CUDA version from nvcc: {cuda_version}")
+            except Exception:
                 pass
-        
+
         # Try CUDA_PATH
         if not cuda_version and os.environ.get("CUDA_PATH"):
             nvcc_path = os.path.join(os.environ["CUDA_PATH"], "bin", "nvcc")
             if os.path.exists(nvcc_path):
                 try:
-                    result = subprocess.run(f"{nvcc_path} --version", shell=True, capture_output=True, text=True)
+                    result = subprocess.run(f'"{nvcc_path}" --version', shell=True, capture_output=True, text=True)
                     if result.returncode == 0:
                         match = re.search(r"release (\d+\.\d+)", result.stdout)
                         if match:
                             cuda_version = match.group(1)
-                            print(f"✅ Detected CUDA via CUDA_PATH: {cuda_version}")
-                except:
+                            print(f"[ComfyUI-RIFE-TensorRT] Detected CUDA via CUDA_PATH: {cuda_version}")
+                except Exception:
                     pass
-        
+
         # Try CUDA_HOME
         if not cuda_version and os.environ.get("CUDA_HOME"):
             nvcc_path = os.path.join(os.environ["CUDA_HOME"], "bin", "nvcc")
             if os.path.exists(nvcc_path):
                 try:
-                    result = subprocess.run(f"{nvcc_path} --version", shell=True, capture_output=True, text=True)
+                    result = subprocess.run(f'"{nvcc_path}" --version', shell=True, capture_output=True, text=True)
                     if result.returncode == 0:
                         match = re.search(r"release (\d+\.\d+)", result.stdout)
                         if match:
                             cuda_version = match.group(1)
-                            print(f"✅ Detected CUDA via CUDA_HOME: {cuda_version}")
-                except:
+                            print(f"[ComfyUI-RIFE-TensorRT] Detected CUDA via CUDA_HOME: {cuda_version}")
+                except Exception:
                     pass
-        
+
         if not cuda_version:
-            print("⚠️  Could not detect CUDA version automatically")
-            print("Please run 'python install.py' manually to install TensorRT")
+            print("[ComfyUI-RIFE-TensorRT] WARNING: Could not detect CUDA version automatically.")
+            print("The NVIDIA CUDA Toolkit must be installed before TensorRT can work.")
+            print("Please run 'python install.py' manually after installing CUDA.")
+            failed_marker.touch()
             return False
-        
-        # Install appropriate TensorRT packages
+
         major_version = int(cuda_version.split('.')[0])
-        
+
         if major_version == 13:
-            print("🚀 Installing CUDA 13 TensorRT packages (RTX 50 series)")
-            packages = [
-                "tensorrt_cu13==10.15.1.29",
-                "tensorrt_cu13_bindings==10.15.1.29", 
-                "tensorrt_cu13_libs==10.15.1.29",
-                "cuda-toolkit>=13.0.0,<13.1.0"
-            ]
+            print("[ComfyUI-RIFE-TensorRT] Installing CUDA 13 TensorRT packages (RTX 50 series)")
+            req_file = "requirements_cu13.txt"
         elif major_version == 12:
-            print("🔧 Installing CUDA 12 TensorRT packages (RTX 30/40 series)")
-            packages = [
-                "tensorrt-cu12==10.13.3.9",
-                "tensorrt-cu12-libs==10.13.3.9",
-                "tensorrt-cu12-bindings==10.13.3.9",
-                "cuda-toolkit>=12.8.0,<13.0.0"
-            ]
+            print("[ComfyUI-RIFE-TensorRT] Installing CUDA 12 TensorRT packages (RTX 30/40 series)")
+            req_file = "requirements_cu12.txt"
         else:
-            print(f"❌ Unsupported CUDA version: {cuda_version}")
+            print(f"[ComfyUI-RIFE-TensorRT] Unsupported CUDA version: {cuda_version}")
+            failed_marker.touch()
             return False
-        
-        # Install packages
-        for package in packages:
-            print(f"Installing {package}...")
-            result = subprocess.run([sys.executable, "-m", "pip", "install", package], capture_output=True)
+
+        req_path = node_dir / req_file
+        if not req_path.exists():
+            print(f"[ComfyUI-RIFE-TensorRT] Missing requirements file: {req_path}")
+            failed_marker.touch()
+            return False
+
+        # Install base dependencies first, then the CUDA-specific TensorRT wheels.
+        for req_name in ["requirements.txt", req_file]:
+            req_file_path = node_dir / req_name
+            if not req_file_path.exists():
+                continue
+            print(f"[ComfyUI-RIFE-TensorRT] Installing from {req_name}...")
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--prefer-binary", "-r", str(req_file_path)],
+                capture_output=True
+            )
             if result.returncode != 0:
-                print(f"❌ Failed to install {package}")
-                print(f"Error: {result.stderr.decode()}")
+                print(f"[ComfyUI-RIFE-TensorRT] Failed to install {req_name}")
+                print(result.stderr.decode(errors="replace"))
+                failed_marker.touch()
                 return False
-        
-        print("✅ TensorRT installation completed successfully!")
+
+        installed_marker.touch()
+        print("[ComfyUI-RIFE-TensorRT] TensorRT installation completed successfully!")
         return True
-        
+
     except Exception as e:
-        print(f"❌ Auto-installation failed: {e}")
+        print(f"[ComfyUI-RIFE-TensorRT] Auto-installation failed: {e}")
         print("Please run 'python install.py' manually to install TensorRT")
+        try:
+            failed_marker.touch()
+        except Exception:
+            pass
         return False
 
 # Run auto-install on module import
