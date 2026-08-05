@@ -86,7 +86,7 @@ def infer_tiled(frame_0, frame_1, timestep, infer_fn, min_hw, max_hw, overlap=12
     fall outside the TensorRT engine's optimization profile.
 
     Args:
-        frame_0, frame_1: [1, C, H, W] tensors on device.
+        frame_0, frame_1: [1, C, H, W] tensors (CPU or CUDA).
         timestep: float.
         infer_fn: callable(f0, f1, t) -> [1, C, H, W] (the raw engine.infer wrapper).
         min_hw: (min_h, min_w) from the engine profile.
@@ -94,8 +94,14 @@ def infer_tiled(frame_0, frame_1, timestep, infer_fn, min_hw, max_hw, overlap=12
         overlap: feathering overlap in pixels between adjacent tiles.
 
     Returns:
-        [1, C, H, W] interpolated frame at the original resolution.
+        [1, C, H, W] interpolated frame at the original resolution (on CPU,
+        ready for generate_frames_rife which does .detach().cpu()).
     """
+    # Move inputs to CUDA — the engine inference requires GPU tensors.
+    device = get_torch_device()
+    frame_0 = frame_0.to(device)
+    frame_1 = frame_1.to(device)
+
     _, C, H, W = frame_0.shape
     min_h, min_w = min_hw
     max_h, max_w = max_hw
@@ -127,10 +133,10 @@ def infer_tiled(frame_0, frame_1, timestep, infer_fn, min_hw, max_hw, overlap=12
         h_positions = _compute_tile_positions(H_pad, tile_h, overlap)
         w_positions = _compute_tile_positions(W_pad, tile_w, overlap)
 
-        window = _make_feather_window(tile_h, tile_w, overlap).to(frame_0.device)
+        window = _make_feather_window(tile_h, tile_w, overlap).to(device)
 
-        output = torch.zeros(1, C, H_pad, W_pad, device=frame_0.device, dtype=frame_0.dtype)
-        weight = torch.zeros(1, 1, H_pad, W_pad, device=frame_0.device, dtype=frame_0.dtype)
+        output = torch.zeros(1, C, H_pad, W_pad, device=device, dtype=frame_0.dtype)
+        weight = torch.zeros(1, 1, H_pad, W_pad, device=device, dtype=frame_0.dtype)
 
         for h0 in h_positions:
             for w0 in w_positions:
