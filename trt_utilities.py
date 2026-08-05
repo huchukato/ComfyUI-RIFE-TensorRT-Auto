@@ -423,6 +423,29 @@ class Engine:
         else:
             self.context = self.engine.create_execution_context()
 
+    def get_input_profile_bounds(self):
+        """Return min/opt/max shapes for the first optimization profile.
+
+        Returns a dict: {tensor_name: (min_shape, opt_shape, max_shape)}.
+        Uses engine.get_tensor_profile_shape (TensorRT 10+). Returns empty
+        dict if the API is unavailable (older TensorRT builds).
+        """
+        bounds = {}
+        try:
+            trt_instance = get_trt()
+            for idx in range(self.engine.num_io_tensors):
+                name = self.engine.get_tensor_name(idx)
+                if self.engine.get_tensor_mode(name) == trt_instance.TensorIOMode.INPUT:
+                    # get_tensor_profile_shape returns [min, opt, max] as trt.Dims
+                    profile_shapes = self.engine.get_tensor_profile_shape(name, 0)
+                    min_shape = tuple(profile_shapes[0])
+                    opt_shape = tuple(profile_shapes[1])
+                    max_shape = tuple(profile_shapes[2])
+                    bounds[name] = (min_shape, opt_shape, max_shape)
+        except Exception as e:
+            print(f"⚠️  Could not retrieve profile bounds: {e}")
+        return bounds
+
     def allocate_buffers(self, shape_dict=None, device="cuda"):
         # Clean up CUDA graph resources since tensors will be recreated
         if hasattr(self, 'cuda_graph_instance') and self.cuda_graph_instance is not None:

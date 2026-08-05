@@ -5,7 +5,7 @@ import subprocess
 import re
 from pathlib import Path
 from comfy.model_management import get_torch_device
-from .vfi_utilities import preprocess_frames, postprocess_frames, generate_frames_rife, logger
+from .vfi_utilities import preprocess_frames, postprocess_frames, generate_frames_rife, logger, InterpolationStateList, infer_tiled
 from .trt_utilities import Engine
 from .utilities import download_file, ColoredLogger
 import folder_paths
@@ -383,6 +383,11 @@ class AutoLoadRifeTensorrtModel:
                 "model": (model_options, {"default": model_default, "tooltip": model_tooltip}),
                 "precision": (precision_options, {"default": precision_default, "tooltip": precision_tooltip}),
                 "resolution_profile": (profile_options, {"default": profile_default, "tooltip": profile_tooltip}),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 16, "step": 1,
+                                       "tooltip": "Max batch size for the engine profile. "
+                                                  "Higher values allow batched inference (multiple frame pairs per GPU call) "
+                                                  "for better throughput, but use more VRAM and require a rebuild. "
+                                                  "Set to 1 for the original behaviour."}),
             },
             "optional": {
                 "custom_config": ("RIFE_RESOLUTION_CONFIG", {"tooltip": "Custom resolution config (used when profile='custom')"}),
@@ -395,7 +400,7 @@ class AutoLoadRifeTensorrtModel:
     DESCRIPTION = "Load RIFE tensorrt models, they will be built automatically if not found."
     FUNCTION = "load_rife_tensorrt_model"
 
-    def load_rife_tensorrt_model(self, model, precision, resolution_profile, custom_config=None):
+    def load_rife_tensorrt_model(self, model, precision, resolution_profile, batch_size=1, custom_config=None):
         tensorrt_models_dir = os.path.join(folder_paths.models_dir, "tensorrt", "rife")
         onnx_models_dir = os.path.join(folder_paths.models_dir, "onnx")
 
@@ -426,7 +431,9 @@ class AutoLoadRifeTensorrtModel:
 
         # Build tensorrt model path with detailed naming (includes profile)
         engine_channel = 3
-        engine_min_batch, engine_opt_batch, engine_max_batch = 1, 1, 1
+        engine_min_batch = 1
+        engine_opt_batch = max(1, batch_size)
+        engine_max_batch = max(1, batch_size)
         engine_min_h, engine_opt_h, engine_max_h = dim_min, dim_opt, dim_max
         engine_min_w, engine_opt_w, engine_max_w = dim_min, dim_opt, dim_max
         tensorrt_model_path = os.path.join(tensorrt_models_dir, f"{model}_{precision}_{profile_name}_{engine_min_batch}x{engine_channel}x{engine_min_h}x{engine_min_w}_{engine_opt_batch}x{engine_channel}x{engine_opt_h}x{engine_opt_w}_{engine_max_batch}x{engine_channel}x{engine_max_h}x{engine_max_w}_{tensorrt.__version__}.trt")
@@ -463,6 +470,38 @@ class AutoLoadRifeTensorrtModel:
 
         return (engine,)
 
+
+class MakeInterpolationStateList:
+    """Build an InterpolationStateList to skip or keep specific frame pairs.
+    Ported from Fannovel16/ComfyUI-Frame-Interpolation.
+    """
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "frame_indices": ("STRING", {"multiline": True, "default": "1,2,3",
+                                             "tooltip": "Comma-separated list of frame-pair indices (0-based). "
+                                                        "Pair i is formed by frame i and frame i+1."}),
+                "is_skip_list": ("BOOLEAN", {"default": True,
+                                             "tooltip": "True = skip interpolation for the listed pairs. "
+                                                        "False = interpolate ONLY the listed pairs."}),
+            },
+        }
+
+    RETURN_TYPES = ("INTERPOLATION_STATES",)
+    FUNCTION = "create_options"
+    CATEGORY = "⚡️ TensorRT/RIFE"
+    DESCRIPTION = "Build a skip/keep list controlling which frame pairs get interpolated by RIFE."
+
+    def create_options(self, frame_indices: str, is_skip_list: bool):
+        frame_indices_list = [int(item.strip()) for item in frame_indices.split(',') if item.strip() != '']
+        interpolation_state_list = InterpolationStateList(
+            frame_indices=frame_indices_list,
+            is_skip_list=is_skip_list,
+        )
+        return (interpolation_state_list,)
+
+
 class AutoRifeTensorrt:
     @classmethod
     def INPUT_TYPES(s):
@@ -471,8 +510,19 @@ class AutoRifeTensorrt:
                 "frames": ("IMAGE", {"tooltip": "Input frames for video frame interpolation"}),
                 "rife_trt_model": ("RIFE_TRT_MODEL", {"tooltip": "Tensorrt model built and loaded"}),
                 "clear_cache_after_n_frames": ("INT", {"default": 100, "min": 1, "max": 1000, "tooltip": "Clear CUDA cache after processing this many frames"}),
-                "multiplier": ("INT", {"default": 2, "min": 1, "tooltip": "Frame interpolation multiplier"}),
+                "multiplier": ("INT", {"default": 2, "min": 1, "tooltip": "Frame interpolation multiplier (uniform). Ignored if multiplier_list is connected."}),
                 "keep_model_loaded": ("BOOLEAN", {"default": False, "tooltip": "Keep model loaded in memory after processing"}),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 16,
+                                       "tooltip": "Number of interpolation tasks per GPU call. "
+                                                  "Higher values improve throughput but use more VRAM. "
+                                                  "Must be <= the batch_size used when building the engine. "
+                                                  "Set to 1 for the safest behaviour."}),
+            },
+            "optional": {
+                "multiplier_list": ("STRING", {"multiline": True, "default": "",
+                                               "tooltip": "Per-pair multiplier schedule, comma-separated (e.g. '2,2,4,4,2'). "
+                                                          "When connected, overrides 'multiplier'. Missing trailing pairs default to 2."}),
+                "interpolation_states": ("INTERPOLATION_STATES", {"tooltip": "Optional skip/keep list from MakeInterpolationStateList"}),
             },
         }
 
@@ -488,6 +538,9 @@ class AutoRifeTensorrt:
         clear_cache_after_n_frames=100,
         multiplier=2,
         keep_model_loaded=False,
+        batch_size=1,
+        multiplier_list="",
+        interpolation_states=None,
     ):
         B, H, W, C = frames.shape
         shape_dict = {
@@ -497,7 +550,7 @@ class AutoRifeTensorrt:
         }
 
         cudaStream = cuda.Stream()
-        
+
         # Auto-detect CUDA graph usage based on CUDA version
         use_cuda_graph = False
         try:
@@ -517,23 +570,124 @@ class AutoRifeTensorrt:
         engine = rife_trt_model
         logger(f"Using loaded TensorRT engine")
 
-        # Activate and allocate buffers for the engine
+        # Activate engine and retrieve profile bounds
         engine.activate()
-        engine.allocate_buffers(shape_dict=shape_dict)
+        bounds = engine.get_input_profile_bounds()
+
+        # Determine if tiling/padding is needed
+        needs_tiling = False
+        min_hw = (1, 1)
+        max_hw = (4096, 4096)
+        if bounds and 'img0' in bounds:
+            min_shape = bounds['img0'][0]
+            max_shape = bounds['img0'][2]
+            min_hw = (min_shape[2], min_shape[3])
+            max_hw = (max_shape[2], max_shape[3])
+            needs_tiling = H > max_hw[0] or W > max_hw[1] or H < min_hw[0] or W < min_hw[1]
+            if needs_tiling:
+                logger(f"Frame {H}x{W} outside profile range "
+                       f"[{min_hw[0]}-{max_hw[0]}]x[{min_hw[1]}-{max_hw[1]}] — enabling tiling/padding")
 
         frames = preprocess_frames(frames)
 
-        def return_middle_frame(frame_0, frame_1, timestep):
-            timestep_t = torch.tensor([timestep], dtype=torch.float32).to(get_torch_device())
-            # s = time.time()
-            output = engine.infer({"img0": frame_0, "img1": frame_1, "timestep": timestep_t}, cudaStream, use_cuda_graph)
-            # e = time.time()
-            # print(f"Time taken to infer: {(e-s)*1000} ms")
+        if needs_tiling:
+            # Disable CUDA graph when tiling (buffers are reallocated per tile)
+            use_cuda_graph = False
+            logger("Tiling mode: CUDA graph disabled")
 
-            result = output['output']
-            return result
+            def _raw_infer(f0, f1, t):
+                """Per-tile inference: reallocate buffers for the tile shape."""
+                _, _, th, tw = f0.shape
+                tile_shape_dict = {
+                    "img0": {"shape": (1, 3, th, tw)},
+                    "img1": {"shape": (1, 3, th, tw)},
+                    "output": {"shape": (1, 3, th, tw)},
+                }
+                engine.allocate_buffers(shape_dict=tile_shape_dict)
+                timestep_t = torch.tensor([t], dtype=torch.float32).to(get_torch_device())
+                output = engine.infer({"img0": f0, "img1": f1, "timestep": timestep_t}, cudaStream, use_cuda_graph)
+                return output['output']
 
-        result = generate_frames_rife(frames, clear_cache_after_n_frames, multiplier, return_middle_frame)
+            def return_middle_frame(frame_0, frame_1, timestep):
+                return infer_tiled(frame_0, frame_1, timestep, _raw_infer, min_hw, max_hw)
+
+            # Batch inference is not compatible with tiling (each tile has different shape)
+            batch_infer_fn = None
+            effective_batch_size = 1
+        else:
+            # Fast path: single allocation, original behaviour
+            engine.allocate_buffers(shape_dict=shape_dict)
+
+            def return_middle_frame(frame_0, frame_1, timestep):
+                timestep_t = torch.tensor([timestep], dtype=torch.float32).to(get_torch_device())
+                output = engine.infer({"img0": frame_0, "img1": frame_1, "timestep": timestep_t}, cudaStream, use_cuda_graph)
+                result = output['output']
+                return result
+
+            # Batch inference: allocate buffers for the requested batch size
+            if batch_size > 1:
+                batch_shape_dict = {
+                    "img0": {"shape": (batch_size, 3, H, W)},
+                    "img1": {"shape": (batch_size, 3, H, W)},
+                    "output": {"shape": (batch_size, 3, H, W)},
+                }
+                # Check if the engine profile supports this batch size
+                engine_max_batch = max_hw[0]  # placeholder, real check below
+                if bounds and 'img0' in bounds:
+                    engine_max_batch = bounds['img0'][2][0]  # max batch dim
+                if engine_max_batch >= batch_size:
+                    logger(f"Batch inference enabled: batch_size={batch_size}")
+                    # Pre-allocate buffers for the full batch
+                    engine.allocate_buffers(shape_dict=batch_shape_dict)
+
+                    def batch_infer_fn(frame0_batch, frame1_batch, timestep_batch):
+                        B_actual = frame0_batch.shape[0]
+                        # If the actual batch is smaller than the allocated batch,
+                        # we still pass the full buffer but only use the first B_actual rows.
+                        # TensorRT requires the input shape to match what was set in allocate_buffers.
+                        # So we pad to the full batch size if needed.
+                        if B_actual < batch_size:
+                            pad_shape = (batch_size - B_actual,) + frame0_batch.shape[1:]
+                            pad0 = torch.zeros(pad_shape, dtype=frame0_batch.dtype, device=frame0_batch.device)
+                            pad1 = torch.zeros(pad_shape, dtype=frame1_batch.dtype, device=frame1_batch.device)
+                            frame0_batch = torch.cat([frame0_batch, pad0], dim=0)
+                            frame1_batch = torch.cat([frame1_batch, pad1], dim=0)
+                            timestep_batch = torch.cat([timestep_batch, torch.zeros(batch_size - B_actual, dtype=timestep_batch.dtype, device=timestep_batch.device)])
+
+                        timestep_t = timestep_batch.to(get_torch_device())
+                        output = engine.infer({"img0": frame0_batch, "img1": frame1_batch, "timestep": timestep_t}, cudaStream, use_cuda_graph)
+                        return output['output'][:B_actual]
+
+                    effective_batch_size = batch_size
+                else:
+                    logger(f"⚠️  Engine max_batch={engine_max_batch} < requested batch_size={batch_size}. "
+                           "Falling back to sequential inference. Rebuild engine with batch_size >= "
+                           f"{batch_size} to enable batched inference.")
+                    batch_infer_fn = None
+                    effective_batch_size = 1
+            else:
+                batch_infer_fn = None
+                effective_batch_size = 1
+
+        # Resolve multiplier: per-pair schedule (list) overrides uniform int
+        effective_multiplier = multiplier
+        if multiplier_list and multiplier_list.strip():
+            try:
+                effective_multiplier = [int(x.strip()) for x in multiplier_list.split(',') if x.strip() != '']
+                logger(f"Using per-pair multiplier schedule: {effective_multiplier}")
+            except ValueError as e:
+                logger(f"Invalid multiplier_list '{multiplier_list}': {e}. Falling back to uniform multiplier={multiplier}")
+                effective_multiplier = multiplier
+
+        result = generate_frames_rife(
+            frames,
+            clear_cache_after_n_frames,
+            effective_multiplier,
+            return_middle_frame,
+            interpolation_states=interpolation_states,
+            batch_size=effective_batch_size,
+            batch_infer_function=batch_infer_fn,
+        )
         out = postprocess_frames(result)
 
         if not keep_model_loaded:
@@ -546,12 +700,14 @@ NODE_CLASS_MAPPINGS = {
     "AutoRifeTensorrt": AutoRifeTensorrt,
     "AutoLoadRifeTensorrtModel": AutoLoadRifeTensorrtModel,
     "CustomResolutionConfig": CustomResolutionConfig,
+    "MakeInterpolationStateList": MakeInterpolationStateList,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "AutoRifeTensorrt": "Auto RIFE TensorRT",
     "AutoLoadRifeTensorrtModel": "(Down)load RIFE TensorRT Model",
     "CustomResolutionConfig": "RIFE Custom Resolution Config",
+    "MakeInterpolationStateList": "RIFE Interpolation State List",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

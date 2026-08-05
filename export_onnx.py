@@ -102,9 +102,10 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
     onnx_save_path = os.path.join("models",onnx_save_name)
 
     dynamic_axes = {
-        'img0': {2: 'height', 3: 'width'},
-        'img1': {2: 'height', 3: 'width'},
-        'output': {2: 'height', 3: 'width'},
+        'img0': {0: 'batch', 2: 'height', 3: 'width'},
+        'img1': {0: 'batch', 2: 'height', 3: 'width'},
+        'timestep': {0: 'batch'},
+        'output': {0: 'batch', 2: 'height', 3: 'width'},
     }
 
     with torch.no_grad():  # Disable gradients for efficiency
