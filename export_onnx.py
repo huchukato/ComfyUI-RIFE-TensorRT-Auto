@@ -23,6 +23,8 @@ CKPT_NAME_VER_DICT = {
     "rife47.pth": "4.7",
     "rife48.pth": "4.7",
     "rife49.pth": "4.7",
+    "rife417.pth": "4.17",
+    "rife426.pth": "4.26",
     "sudo_rife4_269.662_testV1_scale1.pth": "4.0"
 }
 BASE_MODEL_DOWNLOAD_URLS = [
@@ -30,6 +32,34 @@ BASE_MODEL_DOWNLOAD_URLS = [
     "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation/releases/download/models/",
     "https://github.com/dajes/frame-interpolation-pytorch/releases/download/v1.0.0/"
 ]
+# Per-file fallback URLs for models no longer hosted at the base URLs above.
+CKPT_FALLBACK_URLS = {
+    "rife417.pth": [
+        "https://huggingface.co/marduk191/rife/resolve/main/rife417.pth",
+        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife417.pth",
+    ],
+    "rife426.pth": [
+        "https://huggingface.co/marduk191/rife/resolve/main/rife426.pth",
+        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife426.pth",
+    ],
+    "rife47.pth": [
+        "https://huggingface.co/marduk191/rife/resolve/main/rife47.pth",
+        "https://huggingface.co/wavespeed/misc/resolve/main/rife/rife47.pth",
+        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife47.pth",
+        "https://huggingface.co/jasonot/mycomfyui/resolve/main/rife47.pth",
+    ],
+    "rife49.pth": [
+        "https://huggingface.co/marduk191/rife/resolve/main/rife49.pth",
+        "https://huggingface.co/hfmaster/models-moved/resolve/main/rife/rife49.pth",
+        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth",
+        "https://huggingface.co/Isi99999/Frame_Interpolation_Models/resolve/main/rife49.pth",
+    ],
+    "sudo_rife4_269.662_testV1_scale1.pth": [
+        "https://huggingface.co/marduk191/rife/resolve/main/sudo_rife4_269.662_testV1_scale1.pth",
+        "https://huggingface.co/uwg/upscaler/resolve/main/ESRGAN/sudo_rife4_269.662_testV1_scale1.pth",
+        "https://huggingface.co/licyk/sd-upscaler-models/resolve/main/ESRGAN/sudo_rife4_269.662_testV1_scale1.pth",
+    ],
+}
 TORCH_DEVICE = "cuda:0"
 
 def load_file_from_url(url, model_dir=None, progress=True, file_name=None):
@@ -66,17 +96,20 @@ def load_file_from_url(url, model_dir=None, progress=True, file_name=None):
 def load_file_from_github_release(model_type, ckpt_name):
     os.makedirs("models", exist_ok=True)
     error_strs = []
-    for i, base_model_download_url in enumerate(BASE_MODEL_DOWNLOAD_URLS):
+    all_urls = [base + ckpt_name for base in BASE_MODEL_DOWNLOAD_URLS]
+    all_urls += CKPT_FALLBACK_URLS.get(ckpt_name, [])
+
+    for i, url in enumerate(all_urls):
         try:
-            return load_file_from_url(base_model_download_url + ckpt_name, "models")
+            return load_file_from_url(url, "models")
         except Exception:
             traceback_str = traceback.format_exc()
-            if i < len(BASE_MODEL_DOWNLOAD_URLS) - 1:
+            if i < len(all_urls) - 1:
                 print("Failed! Trying another endpoint.")
-            error_strs.append(f"Error when downloading from: {base_model_download_url + ckpt_name}\n\n{traceback_str}")
+            error_strs.append(f"Error when downloading from: {url}\n\n{traceback_str}")
 
     error_str = '\n\n'.join(error_strs)
-    raise Exception(f"Tried all GitHub base urls to download {ckpt_name} but no suceess. Below is the error log:\n\n{error_str}")
+    raise Exception(f"Tried all urls to download {ckpt_name} but no success. Below is the error log:\n\n{error_str}")
 
 def export_onnx(ckpt_name, ensemble, scale_factor):
     print(f"PyTorch version: {torch.__version__}")
@@ -141,3 +174,7 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
 
 
 export_onnx(ckpt_name="rife47.pth", ensemble=True, scale_factor=1)
+export_onnx(ckpt_name="rife49.pth", ensemble=True, scale_factor=1)
+export_onnx(ckpt_name="rife417.pth", ensemble=True, scale_factor=1)
+export_onnx(ckpt_name="rife426.pth", ensemble=False, scale_factor=1)
+export_onnx(ckpt_name="sudo_rife4_269.662_testV1_scale1.pth", ensemble=True, scale_factor=1)
