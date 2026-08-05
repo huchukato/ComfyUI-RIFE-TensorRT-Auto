@@ -120,7 +120,19 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
     model_path = load_file_from_github_release(MODEL_TYPE, ckpt_name)
     arch_ver = CKPT_NAME_VER_DICT[ckpt_name]
     interpolation_model = IFNet(arch_ver=arch_ver)
-    interpolation_model.load_state_dict(torch.load(model_path))
+    # Some checkpoints (e.g. rife426.pth) contain extra training-only modules
+    # (teacher.*, caltime.*) that are not part of the inference architecture.
+    # Filter them out to avoid load_state_dict errors.
+    raw_state_dict = torch.load(model_path, weights_only=False)
+    model_keys = set(interpolation_model.state_dict().keys())
+    filtered_state_dict = {
+        k: v for k, v in raw_state_dict.items()
+        if k in model_keys
+    }
+    skipped = set(raw_state_dict.keys()) - model_keys
+    if skipped:
+        print(f"Filtered out {len(skipped)} training-only keys: {sorted(skipped)[:5]}...")
+    interpolation_model.load_state_dict(filtered_state_dict, strict=True)
     interpolation_model.eval().to(TORCH_DEVICE)
 
     # # dummy data
