@@ -95,9 +95,17 @@ def _auto_install_tensorrt():
     installed_marker = node_dir / ".tensorrt_auto_installed"
     failed_marker = node_dir / ".tensorrt_auto_install_failed"
 
-    # Skip if we already installed successfully in a previous run.
+    # Skip if we already installed successfully in a previous run AND tensorrt is importable.
     if installed_marker.exists():
-        return True
+        try:
+            import tensorrt
+            return True
+        except ImportError:
+            print("[ComfyUI-RIFE-TensorRT] Install marker exists but tensorrt is not importable; retrying.")
+            try:
+                installed_marker.unlink()
+            except Exception:
+                pass
 
     # Avoid retrying too often after a failure (do not block every startup).
     if failed_marker.exists():
@@ -105,6 +113,7 @@ def _auto_install_tensorrt():
             last_fail = failed_marker.stat().st_mtime
             if time.time() - last_fail < 3600:
                 print("[ComfyUI-RIFE-TensorRT] Recent failed install attempt; skipping auto-install.")
+                print("To retry now, delete the .tensorrt_auto_install_failed marker file or wait 1 hour.")
                 return False
         except Exception:
             pass
@@ -205,7 +214,7 @@ def _auto_install_tensorrt():
                 continue
             print(f"[ComfyUI-RIFE-TensorRT] Installing from {req_name}...")
             result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--prefer-binary", "-r", str(req_file_path)],
+                [sys.executable, "-m", "pip", "install", "--no-input", "--prefer-binary", "-r", str(req_file_path)],
                 capture_output=True
             )
             if result.returncode != 0:
@@ -213,6 +222,10 @@ def _auto_install_tensorrt():
                 print(result.stderr.decode(errors="replace"))
                 failed_marker.touch()
                 return False
+            # Show pip stdout so the user can see progress / warnings.
+            stdout = result.stdout.decode(errors="replace").strip()
+            if stdout:
+                print(stdout)
 
         installed_marker.touch()
         print("[ComfyUI-RIFE-TensorRT] TensorRT installation completed successfully!")

@@ -97,7 +97,7 @@ def install_requirements(cuda_version):
             continue
         print(f"Installing from {req_name}...")
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--prefer-binary", "-r", str(req_file_path)]
+            [sys.executable, "-m", "pip", "install", "--no-input", "--prefer-binary", "-r", str(req_file_path)]
         )
         if result.returncode != 0:
             print(f"Failed to install {req_name}")
