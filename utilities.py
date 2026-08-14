@@ -81,10 +81,20 @@ def download_file(url, save_path):
     Args:
         url (str): URL of the file to download
         save_path (str): Path to save the file as
+
+    Raises:
+        RuntimeError: If the download fails (HTTP error or empty file)
     """
     GREEN = '\033[92m'
     RESET = '\033[0m'
     response = requests.get(url, stream=True)
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Download failed with HTTP {response.status_code} for {url}. "
+            f"The file may not exist at this URL."
+        )
+
     total_size = int(response.headers.get('content-length', 0))
 
     with open(save_path, 'wb') as file, tqdm(
@@ -99,3 +109,23 @@ def download_file(url, save_path):
         for data in response.iter_content(chunk_size=1024):
             size = file.write(data)
             progress_bar.update(size)
+
+    # Validate the downloaded file
+    import os
+    file_size = os.path.getsize(save_path)
+    if file_size < 1024:
+        os.remove(save_path)
+        raise RuntimeError(
+            f"Downloaded file is too small ({file_size} bytes) — likely an error page. "
+            f"URL: {url}"
+        )
+
+    # Check ONNX magic bytes (protobuf tag for onnx.ModelProto starts with \x08)
+    if save_path.endswith('.onnx'):
+        with open(save_path, 'rb') as f:
+            header = f.read(16)
+        if b'<html' in header.lower() or b'<!doctype' in header.lower():
+            os.remove(save_path)
+            raise RuntimeError(
+                f"Downloaded file is HTML, not ONNX. The model may not exist at: {url}"
+            )

@@ -453,9 +453,26 @@ class AutoLoadRifeTensorrtModel:
 
         if not os.path.exists(tensorrt_model_path):
             if not os.path.exists(onnx_model_path):
-                onnx_model_download_url = f"https://huggingface.co/yuvraj108c/rife-onnx/resolve/main/{model}.onnx"
-                rife_logger.info(f"Downloading {onnx_model_download_url}")
-                download_file(url=onnx_model_download_url, save_path=onnx_model_path)
+                # Try multiple download sources in case the primary one fails
+                onnx_download_urls = [
+                    f"https://huggingface.co/yuvraj108c/rife-onnx/resolve/main/{model}.onnx",
+                    f"https://huggingface.co/marduk191/rife/resolve/main/{model}.onnx",
+                ]
+                download_success = False
+                for url in onnx_download_urls:
+                    try:
+                        rife_logger.info(f"Downloading {url}")
+                        download_file(url=url, save_path=onnx_model_path)
+                        download_success = True
+                        break
+                    except Exception as e:
+                        rife_logger.warning(f"Download failed from {url}: {e}")
+                        continue
+                if not download_success:
+                    raise RuntimeError(
+                        f"Failed to download ONNX model '{model}.onnx' from all sources. "
+                        f"You can manually export it using export_onnx.py and place it in: {onnx_model_path}"
+                    )
             else:
                 rife_logger.info(f"ONNX model found at: {onnx_model_path}")
 
