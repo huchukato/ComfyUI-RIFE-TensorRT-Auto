@@ -139,10 +139,11 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
     interpolation_model.load_state_dict(filtered_state_dict, strict=True)
     interpolation_model.eval().to(TORCH_DEVICE)
 
-    # # dummy data — use 1080x1080 so onnxsim doesn't fix intermediate
-    # dimensions to 512px (which breaks TRT build for large profiles)
-    img0 = torch.randn(1, 3, 1080, 1080).to(TORCH_DEVICE)
-    img1 = torch.randn(1, 3, 1080, 1080).to(TORCH_DEVICE)
+    # # dummy data — must be divisible by 16 (RIFE 4.25 scale_list=[16,8,4,2,1])
+    # and large enough that onnxsim doesn't fix intermediate dims to small values.
+    # 1024 is divisible by 16/32/64 and is a clean power of 2.
+    img0 = torch.randn(1, 3, 1024, 1024).to(TORCH_DEVICE)
+    img1 = torch.randn(1, 3, 1024, 1024).to(TORCH_DEVICE)
     timestep = torch.tensor([0.5], dtype=torch.float32).to(TORCH_DEVICE)
 
     # result = (interpolation_model(img0, img1, timestep))
@@ -167,7 +168,8 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
                 do_constant_folding=True,
                 input_names=['img0', 'img1', 'timestep'],
                 output_names=['output'],
-                dynamic_axes=dynamic_axes
+                dynamic_axes=dynamic_axes,
+                dynamo=False,  # Use legacy exporter for simpler shape annotations
         )
         print(f"ONNX model exported to: {onnx_save_path}")
 
@@ -179,10 +181,10 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
         # print(onnx.helper.printable_graph(onnx_model.graph))
 
         sim_model_path = os.path.join("models",  f"{ckpt_name.split('.')[0]}_ensemble_{ensemble}_scale_{scale_factor}_sim.onnx")
-        print("=> ONNX simplify start!")
-        sim_onnx_model, check = simplify(onnx_model)
-        onnx.save(sim_onnx_model, sim_model_path)
-        print("=> ONNX simplify done!")
+        print("=> Skipping ONNX simplify (onnxsim folds constants based on dummy input size, which breaks TRT dynamic shapes)")
+        # Just save the raw ONNX as the _sim version (skip simplify)
+        onnx.save(onnx_model, sim_model_path)
+        print(f"=> Saved raw ONNX (no simplify) to {sim_model_path}")
 
         sim_model = onnx.load(sim_model_path)
         onnx.checker.check_model(sim_model)
