@@ -8,7 +8,10 @@
 # Base dependencies that work with any CUDA version
 einops
 colored
-polygraphy
+# Pin to the Polygraphy version bundled with TensorRT 10.15.1.
+# Newer Polygraphy can break trt.OnnxParser init with:
+#   pybind11::init(): factory function returned nullptr
+polygraphy==0.49.26
 cuda-python
 requests
 tqdm

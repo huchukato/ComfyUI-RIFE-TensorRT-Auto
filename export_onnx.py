@@ -24,6 +24,7 @@ CKPT_NAME_VER_DICT = {
     "rife48.pth": "4.7",
     "rife49.pth": "4.7",
     "rife417.pth": "4.17",
+    "rife425.pth": "4.25",
     "rife426.pth": "4.26",
     "sudo_rife4_269.662_testV1_scale1.pth": "4.0"
 }
@@ -37,6 +38,9 @@ CKPT_FALLBACK_URLS = {
     "rife417.pth": [
         "https://huggingface.co/marduk191/rife/resolve/main/rife417.pth",
         "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife417.pth",
+    ],
+    "rife425.pth": [
+        "https://huggingface.co/huchukato/favs/resolve/main/RIFE/rife425.pth",
     ],
     "rife426.pth": [
         "https://huggingface.co/marduk191/rife/resolve/main/rife426.pth",
@@ -60,7 +64,7 @@ CKPT_FALLBACK_URLS = {
         "https://huggingface.co/licyk/sd-upscaler-models/resolve/main/ESRGAN/sudo_rife4_269.662_testV1_scale1.pth",
     ],
 }
-TORCH_DEVICE = "cuda:0"
+TORCH_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 def load_file_from_url(url, model_dir=None, progress=True, file_name=None):
     """Load file form http url, will download models if necessary.
@@ -188,5 +192,6 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
 export_onnx(ckpt_name="rife47.pth", ensemble=True, scale_factor=1)
 export_onnx(ckpt_name="rife49.pth", ensemble=True, scale_factor=1)
 export_onnx(ckpt_name="rife417.pth", ensemble=True, scale_factor=1)
+export_onnx(ckpt_name="rife425.pth", ensemble=False, scale_factor=1)
 export_onnx(ckpt_name="rife426.pth", ensemble=False, scale_factor=1)
 export_onnx(ckpt_name="sudo_rife4_269.662_testV1_scale1.pth", ensemble=True, scale_factor=1)

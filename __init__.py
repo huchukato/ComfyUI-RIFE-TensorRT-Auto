@@ -309,8 +309,8 @@ def load_node_config(config_filename="load_rife_config.json"):
 
     default_config = {
         "model": {
-            "options": ["rife49_ensemble_True_scale_1_sim"],
-            "default": "rife49_ensemble_True_scale_1_sim",
+            "options": ["rife425_ensemble_False_scale_1_sim", "rife49_ensemble_True_scale_1_sim"],
+            "default": "rife425_ensemble_False_scale_1_sim",
             "tooltip": "Default model (fallback from code)"
         },
         "precision": {

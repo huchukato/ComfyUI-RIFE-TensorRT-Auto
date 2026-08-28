@@ -1,15 +1,11 @@
 {
   "model": {
     "options": [
-      "rife47_ensemble_True_scale_1_sim",
-      "rife48_ensemble_True_scale_1_sim",
       "rife49_ensemble_True_scale_1_sim",
-      "rife417_ensemble_True_scale_1_sim",
-      "rife426_ensemble_False_scale_1_sim",
-      "sudo_rife4_269.662_testV1_scale1_ensemble_True_scale_1_sim"
+      "rife425_ensemble_False_scale_1_sim"
     ],
-    "default": "rife49_ensemble_True_scale_1_sim",
-    "tooltip": "RIFE models for video frame interpolation. rife49 (v4.7) is the stable default. rife417 (v4.17) and rife426 (v4.26) are newer with improved quality. sudo_rife4 is a community-trained v4.0 variant."
+    "default": "rife425_ensemble_False_scale_1_sim",
+    "tooltip": "RIFE models for video frame interpolation. rife425 (v4.25) is the recommended default for diffusion-generated video. rife49 (v4.9) is the stable legacy option."
   },
   "precision": {
     "options": ["fp16", "fp32"],
