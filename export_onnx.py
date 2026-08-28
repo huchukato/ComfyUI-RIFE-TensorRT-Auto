@@ -139,9 +139,10 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
     interpolation_model.load_state_dict(filtered_state_dict, strict=True)
     interpolation_model.eval().to(TORCH_DEVICE)
 
-    # # dummy data
-    img0 = torch.randn(1, 3, 512, 512).to(TORCH_DEVICE)
-    img1 = torch.randn(1, 3, 512, 512).to(TORCH_DEVICE)
+    # # dummy data — use 1080x1080 so onnxsim doesn't fix intermediate
+    # dimensions to 512px (which breaks TRT build for large profiles)
+    img0 = torch.randn(1, 3, 1080, 1080).to(TORCH_DEVICE)
+    img1 = torch.randn(1, 3, 1080, 1080).to(TORCH_DEVICE)
     timestep = torch.tensor([0.5], dtype=torch.float32).to(TORCH_DEVICE)
 
     # result = (interpolation_model(img0, img1, timestep))
@@ -179,7 +180,7 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
 
         sim_model_path = os.path.join("models",  f"{ckpt_name.split('.')[0]}_ensemble_{ensemble}_scale_{scale_factor}_sim.onnx")
         print("=> ONNX simplify start!")
-        sim_onnx_model, check = simplify(onnx_model)  # convert(simplify)
+        sim_onnx_model, check = simplify(onnx_model)
         onnx.save(sim_onnx_model, sim_model_path)
         print("=> ONNX simplify done!")
 
@@ -189,9 +190,9 @@ def export_onnx(ckpt_name, ensemble, scale_factor):
         print("=> sim ONNX Model check done!")
 
 
-export_onnx(ckpt_name="rife47.pth", ensemble=True, scale_factor=1)
-export_onnx(ckpt_name="rife49.pth", ensemble=True, scale_factor=1)
-export_onnx(ckpt_name="rife417.pth", ensemble=True, scale_factor=1)
 export_onnx(ckpt_name="rife425.pth", ensemble=False, scale_factor=1)
-export_onnx(ckpt_name="rife426.pth", ensemble=False, scale_factor=1)
-export_onnx(ckpt_name="sudo_rife4_269.662_testV1_scale1.pth", ensemble=True, scale_factor=1)
+# export_onnx(ckpt_name="rife47.pth", ensemble=True, scale_factor=1)
+# export_onnx(ckpt_name="rife49.pth", ensemble=True, scale_factor=1)
+# export_onnx(ckpt_name="rife417.pth", ensemble=True, scale_factor=1)
+# export_onnx(ckpt_name="rife426.pth", ensemble=False, scale_factor=1)
+# export_onnx(ckpt_name="sudo_rife4_269.662_testV1_scale1.pth", ensemble=True, scale_factor=1)
