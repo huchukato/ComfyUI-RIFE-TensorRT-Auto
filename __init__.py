@@ -455,7 +455,7 @@ class AutoLoadRifeTensorrtModel:
             if not os.path.exists(onnx_model_path):
                 # Try multiple download sources in case the primary one fails
                 onnx_download_urls = [
-                    f"https://huggingface.co/huchukato/favs/resolve/main/ESRGAN/{model}.onnx",
+                    f"https://huggingface.co/huchukato/garage/resolve/main/onnx/rife/{model}.onnx",
                     f"https://huggingface.co/yuvraj108c/rife-onnx/resolve/main/{model}.onnx",
                     f"https://huggingface.co/marduk191/rife/resolve/main/{model}.onnx",
                 ]

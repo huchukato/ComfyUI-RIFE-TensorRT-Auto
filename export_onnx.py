@@ -40,7 +40,7 @@ CKPT_FALLBACK_URLS = {
         "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife417.pth",
     ],
     "rife425.pth": [
-        "https://huggingface.co/huchukato/favs/resolve/main/RIFE/rife425.pth",
+        "https://huggingface.co/huchukato/garage/resolve/main/onnx/rife/rife425.pth",
     ],
     "rife426.pth": [
         "https://huggingface.co/marduk191/rife/resolve/main/rife426.pth",
