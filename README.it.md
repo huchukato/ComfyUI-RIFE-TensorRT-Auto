@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/huchukato/ComfyUI-RIFE-TensorRT-Auto/master/banner.png" alt="Auto TensorRT RIFE Banner" width="100%" />
+
 # ComfyUI Rife TensorRT ⚡
 
 [![python](https://img.shields.io/badge/python-3.12-green)](https://www.python.org/downloads/)
