@@ -1,14 +1,15 @@
 [project]
-name = "ComfyUI_RIFE_TensorRT_Auto"
+name = "Auto-TensorRT-RIFE"
 description = "Ultra fast frame interpolation using RIFE with TensorRT with Automatic downloading"
 version = "1.2.0"
 license = { file = "LICENSE" }
 
 [project.urls]
 Repository = "https://github.com/huchukato/ComfyUI-RIFE-TensorRT-Auto"
-#  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
 PublisherId = "huchukato"
-DisplayName = "ComfyUI_RIFE_TensorRT_Auto"
-Icon = ""
+DisplayName = "Auto TensorRT RIFE"
+Icon = "https://raw.githubusercontent.com/huchukato/ComfyUI-RIFE-TensorRT-Auto/master/icon.png"
+Banner = "https://raw.githubusercontent.com/huchukato/ComfyUI-RIFE-TensorRT-Auto/master/banner.png"
+requires-comfyui = ">=1.0.0"
