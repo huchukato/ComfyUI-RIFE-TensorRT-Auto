@@ -2,3 +2,6 @@ models
 __pycache__
 .vscode
 .DS_Store
+
+# Local caches / Devin local config
+.ruff_cache/
