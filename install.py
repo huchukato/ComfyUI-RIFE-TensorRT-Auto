@@ -17,9 +17,10 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 def run_command(cmd):
     """Run a command (argv list) and return stdout + return code."""
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        return result.stdout.strip(), result.returncode
-    except Exception as e:
+        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True).strip(), 0
+    except subprocess.CalledProcessError as e:
+        return "", e.returncode
+    except Exception:
         return "", 1
 
 
@@ -96,10 +97,11 @@ def install_requirements(cuda_version):
         if not req_file_path.exists():
             continue
         print(f"Installing from {req_name}...")
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--no-input", "--prefer-binary", "-r", str(req_file_path)]
-        )
-        if result.returncode != 0:
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "--no-input", "--prefer-binary", "-r", str(req_file_path)]
+            )
+        except subprocess.CalledProcessError:
             print(f"Failed to install {req_name}")
             return False
 
