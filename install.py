@@ -15,9 +15,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def run_command(cmd):
-    """Run a shell command and return stdout + return code."""
+    """Run a command (argv list) and return stdout + return code."""
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
         return result.stdout.strip(), result.returncode
     except Exception as e:
         return "", 1
@@ -28,7 +28,7 @@ def detect_cuda_version():
     print("Detecting CUDA version...")
 
     # Try nvcc command
-    stdout, returncode = run_command("nvcc --version")
+    stdout, returncode = run_command(["nvcc", "--version"])
     if returncode == 0:
         match = re.search(r"release (\d+\.\d+)", stdout)
         if match:
@@ -41,7 +41,7 @@ def detect_cuda_version():
     if cuda_path:
         nvcc_path = os.path.join(cuda_path, "bin", "nvcc")
         if os.path.exists(nvcc_path):
-            stdout, returncode = run_command(f'"{nvcc_path}" --version')
+            stdout, returncode = run_command([nvcc_path, "--version"])
             if returncode == 0:
                 match = re.search(r"release (\d+\.\d+)", stdout)
                 if match:
@@ -54,7 +54,7 @@ def detect_cuda_version():
     if cuda_home:
         nvcc_path = os.path.join(cuda_home, "bin", "nvcc")
         if os.path.exists(nvcc_path):
-            stdout, returncode = run_command(f'"{nvcc_path}" --version')
+            stdout, returncode = run_command([nvcc_path, "--version"])
             if returncode == 0:
                 match = re.search(r"release (\d+\.\d+)", stdout)
                 if match:
