@@ -38,7 +38,7 @@ def detect_cuda_version():
             return version
 
     # Try CUDA_PATH
-    cuda_path = os.environ.get("CUDA_PATH")
+    cuda_path = os.getenv("CUDA_PATH")
     if cuda_path:
         nvcc_path = os.path.join(cuda_path, "bin", "nvcc")
         if os.path.exists(nvcc_path):
@@ -51,7 +51,7 @@ def detect_cuda_version():
                     return version
 
     # Try CUDA_HOME
-    cuda_home = os.environ.get("CUDA_HOME")
+    cuda_home = os.getenv("CUDA_HOME")
     if cuda_home:
         nvcc_path = os.path.join(cuda_home, "bin", "nvcc")
         if os.path.exists(nvcc_path):
