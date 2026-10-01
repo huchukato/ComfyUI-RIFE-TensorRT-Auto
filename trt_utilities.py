@@ -272,7 +272,7 @@ class Engine:
         # Clean up CUDA graph resources
         if hasattr(self, 'cuda_graph_instance') and self.cuda_graph_instance is not None:
             try:
-                cudart.cudaGraphDestroy(self.cuda_graph_instance)
+                cudart.cudaGraphExecDestroy(self.cuda_graph_instance)
             except:
                 pass
         if hasattr(self, 'graph') and self.graph is not None:
@@ -290,7 +290,7 @@ class Engine:
         # Clean up CUDA graph resources first
         if hasattr(self, 'cuda_graph_instance') and self.cuda_graph_instance is not None:
             try:
-                cudart.cudaGraphDestroy(self.cuda_graph_instance)
+                cudart.cudaGraphExecDestroy(self.cuda_graph_instance)
             except:
                 pass
             self.cuda_graph_instance = None
@@ -450,7 +450,7 @@ class Engine:
         # Clean up CUDA graph resources since tensors will be recreated
         if hasattr(self, 'cuda_graph_instance') and self.cuda_graph_instance is not None:
             try:
-                cudart.cudaGraphDestroy(self.cuda_graph_instance)
+                cudart.cudaGraphExecDestroy(self.cuda_graph_instance)
             except:
                 pass
             self.cuda_graph_instance = None
