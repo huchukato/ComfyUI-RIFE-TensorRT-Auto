@@ -6,7 +6,12 @@ import re
 from pathlib import Path
 from comfy.model_management import get_torch_device
 from .vfi_utilities import preprocess_frames, postprocess_frames, generate_frames_rife, logger, InterpolationStateList, infer_tiled
-from .trt_utilities import Engine
+try:
+    from .trt_utilities import Engine
+except Exception as _trt_utils_err:
+    Engine = None
+    print(f"[ComfyUI-RIFE-TensorRT] trt utilities not importable ({_trt_utils_err}); "
+          "run 'pip install -r requirements.txt' in this folder and restart ComfyUI.")
 from .utilities import download_file, ColoredLogger
 import folder_paths
 import time
@@ -283,9 +288,19 @@ def _setup_cuda_dll_path():
 
 _setup_cuda_dll_path()
 
-from polygraphy import cuda
+try:
+    from polygraphy import cuda
+except Exception as _poly_err:
+    cuda = None
+    print(f"[ComfyUI-RIFE-TensorRT] polygraphy/cuda bindings not importable ({_poly_err}); "
+          "run 'pip install -r requirements.txt' in this folder and restart ComfyUI.")
 import comfy.model_management as mm
-import tensorrt
+try:
+    import tensorrt
+except ImportError:
+    tensorrt = None
+    print("[ComfyUI-RIFE-TensorRT] TensorRT not importable — nodes will register, but building/running "
+          "engines needs TensorRT. Run install.py (Windows: install.bat) in this folder and restart ComfyUI.")
 import json
 
 ENGINE_DIR = os.path.join(folder_paths.models_dir, "tensorrt", "rife")
@@ -447,6 +462,9 @@ class AutoLoadRifeTensorrtModel:
         engine_max_batch = max(1, batch_size)
         engine_min_h, engine_opt_h, engine_max_h = dim_min, dim_opt, dim_max
         engine_min_w, engine_opt_w, engine_max_w = dim_min, dim_opt, dim_max
+        if tensorrt is None or Engine is None:
+            raise RuntimeError("[ComfyUI-RIFE-TensorRT] TensorRT or its utilities are not importable — run "
+                               "install.py (Windows: install.bat) in the node folder, then restart ComfyUI.")
         tensorrt_model_path = os.path.join(tensorrt_models_dir, f"{model}_{precision}_{profile_name}_{engine_min_batch}x{engine_channel}x{engine_min_h}x{engine_min_w}_{engine_opt_batch}x{engine_channel}x{engine_opt_h}x{engine_opt_w}_{engine_max_batch}x{engine_channel}x{engine_max_h}x{engine_max_w}_{tensorrt.__version__}.trt")
 
         if not os.path.exists(tensorrt_model_path):
@@ -578,6 +596,9 @@ class AutoRifeTensorrt:
             "output": {"shape": (1, 3, H, W)},
         }
 
+        if cuda is None:
+            raise RuntimeError("[ComfyUI-RIFE-TensorRT] polygraphy/cuda bindings are missing — run "
+                               "'pip install -r requirements.txt' in the node folder, then restart ComfyUI.")
         cudaStream = cuda.Stream()
 
         # Auto-detect CUDA graph usage based on CUDA version
