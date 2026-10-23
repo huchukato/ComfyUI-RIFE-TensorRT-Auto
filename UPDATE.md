@@ -1,5 +1,13 @@
 # Update Log
 
+## Version 1.2.5
+
+- Fixed "missing node type" / "failed to import": the pack no longer dies at import when TensorRT or polygraphy are not importable. Nodes now always register; a clear, actionable error appears only when building/running an engine, telling you to run install.py (Windows: install.bat) or `pip install -r requirements.txt`.
+
+## Version 1.2.4
+
+- Stability and compatibility improvements for engine build and auto-install.
+
 ## Version 1.2.3
 
 - Replaced `subprocess.run` calls with `check_output`/`check_call` for nvcc detection and pip install — identical behavior, avoids the registry scanner's command-injection false positive.
