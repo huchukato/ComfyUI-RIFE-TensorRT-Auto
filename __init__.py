@@ -426,7 +426,7 @@ class AutoLoadRifeTensorrtModel:
     DESCRIPTION = "Load RIFE tensorrt models, they will be built automatically if not found."
     FUNCTION = "load_rife_tensorrt_model"
 
-    def load_rife_tensorrt_model(self, model, precision, resolution_profile, batch_size=1, custom_config=None):
+    def load_rife_tensorrt_model(self, model, precision, resolution_profile, batch_size=1, custom_config=None, _retried=False):
         tensorrt_models_dir = os.path.join(folder_paths.models_dir, "tensorrt", "rife")
         onnx_models_dir = os.path.join(folder_paths.models_dir, "onnx")
 
@@ -513,7 +513,15 @@ class AutoLoadRifeTensorrtModel:
         rife_logger.info(f"Loading TensorRT engine: {tensorrt_model_path}")
         mm.soft_empty_cache()
         engine = Engine(tensorrt_model_path)
-        engine.load()
+        try:
+            engine.load()
+        except Exception as load_err:
+            # Stale/corrupt engine (GPU mismatch or interrupted build): delete and rebuild once.
+            rife_logger.warning(f"Engine load failed ({load_err}); deleting and rebuilding from ONNX")
+            os.remove(tensorrt_model_path)
+            if _retried:
+                raise
+            return self.load_rife_tensorrt_model(model, precision, resolution_profile, batch_size, custom_config, _retried=True)
 
         return (engine,)
 
